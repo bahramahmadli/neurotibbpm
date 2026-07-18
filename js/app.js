@@ -182,6 +182,7 @@
     const passwordInput = document.getElementById("authPassword");
     const btnSignIn = document.getElementById("btnEmailSignIn");
     const btnSignUp = document.getElementById("btnEmailSignUp");
+    const btnGoogle = document.getElementById("btnGoogleSignIn");
     
     if (emailInput) emailInput.disabled = loading;
     if (passwordInput) passwordInput.disabled = loading;
@@ -193,6 +194,11 @@
     if (btnSignUp) {
       btnSignUp.disabled = loading;
       btnSignUp.textContent = loading ? '...' : 'Register';
+    }
+    if (btnGoogle && window.location.protocol !== 'file:') {
+      btnGoogle.disabled = loading;
+      btnGoogle.style.opacity = loading ? '0.6' : '1';
+      btnGoogle.style.cursor = loading ? 'wait' : 'pointer';
     }
   }
 
@@ -212,6 +218,27 @@
         }
       );
     });
+  }
+
+  function getAuthErrorMessage(err) {
+    if (!err) return "Authentication failed. Please try again.";
+    const code = err.code || "";
+    const message = err.message || String(err);
+
+    if (code === "auth/invalid-credential" || code === "auth/wrong-password" || code === "auth/user-not-found") {
+      return "The email or password is incorrect.";
+    }
+    if (code === "auth/too-many-requests") {
+      return "Too many failed attempts. Please wait a moment and try again.";
+    }
+    if (code === "auth/popup-closed-by-user") {
+      return "Google sign-in was closed before it completed.";
+    }
+    if (code === "permission-denied" || message.toLowerCase().includes("permission")) {
+      return "Firebase allowed the sign-in, but Firestore denied project access. Deploy the included firestore.rules file, or create your member record under projects/neurotibb/members for this user.";
+    }
+
+    return message;
   }
 
   class DataStore {
@@ -282,44 +309,32 @@
       firebase.auth().onAuthStateChanged(async (user) => {
         if (user) {
           console.log("User logged in:", user.email);
+          setAuthLoading(true, "Opening...");
           
           try {
-            await timeoutPromise(this.migrateData(), 6000, "Database migration timed out. Please check network/rules.");
-            
-            const memberDoc = await timeoutPromise(this.db.collection("projects").doc("neurotibb").collection("members").doc(user.uid).get(), 6000, "Membership check timed out. Please check network/rules.");
-            if (memberDoc.exists) {
-              this.userRole = memberDoc.data().role || 'viewer';
-              this.currentUser = { uid: user.uid, email: user.email, displayName: memberDoc.data().displayName || user.email.split('@')[0], role: this.userRole };
-              
-              await timeoutPromise(this.checkAndSeedDatabase(), 6000, "Database seeding timed out.");
-              this.setupUserUI();
-              this.startRealtimeListeners();
-            } else {
-              const membersSnap = await timeoutPromise(this.db.collection("projects").doc("neurotibb").collection("members").limit(1).get(), 6000, "Members collection query timed out.");
-              if (membersSnap.empty) {
-                console.log("Registering first user as project owner");
-                const ownerData = {
-                  email: user.email,
-                  displayName: user.displayName || user.email.split('@')[0],
-                  role: "owner",
-                  createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                };
-                await timeoutPromise(this.db.collection("projects").doc("neurotibb").collection("members").doc(user.uid).set(ownerData), 6000, "Registration save timed out.");
-                this.userRole = "owner";
-                this.currentUser = { uid: user.uid, email: user.email, displayName: ownerData.displayName, role: "owner" };
-                
-                await timeoutPromise(this.checkAndSeedDatabase(), 6000, "Database seeding timed out.");
-                this.setupUserUI();
-                this.startRealtimeListeners();
-              } else {
-                console.error("Access Denied: Not a member");
-                await firebase.auth().signOut();
-                showAuthOverlay(true, "Access Denied: You are not a member of the Neurotibb project.");
-              }
+            const memberData = await timeoutPromise(this.resolveProjectMembership(user), 8000, "Membership setup timed out. Please check your internet connection and Firestore rules.");
+            this.userRole = memberData.role || 'viewer';
+            this.currentUser = {
+              uid: user.uid,
+              email: user.email,
+              displayName: memberData.displayName || user.displayName || user.email.split('@')[0],
+              role: this.userRole
+            };
+
+            this.setupUserUI();
+            if (this.userRole === "owner") {
+              await timeoutPromise(this.migrateData(), 8000, "Database migration timed out. Please check network/rules.");
+              await timeoutPromise(this.checkAndSeedDatabase(), 8000, "Database seeding timed out.");
             }
+            this.startRealtimeListeners();
           } catch (err) {
             console.error("Auth state resolve error:", err);
-            showAuthOverlay(true, "Authorization error: " + err.message);
+            this.currentUser = null;
+            this.userRole = 'viewer';
+            this.stopRealtimeListeners();
+            showAuthOverlay(true, "Authorization error: " + getAuthErrorMessage(err));
+          } finally {
+            setAuthLoading(false);
           }
         } else {
           console.log("No user authenticated.");
@@ -331,6 +346,63 @@
           showAuthOverlay(true);
         }
       });
+    }
+
+    async resolveProjectMembership(user) {
+      const projectRef = this.db.collection("projects").doc("neurotibb");
+      const memberRef = projectRef.collection("members").doc(user.uid);
+      const displayName = user.displayName || user.email.split('@')[0];
+
+      let projectExists = true;
+      try {
+        const projectSnap = await projectRef.get();
+        projectExists = projectSnap.exists;
+      } catch (err) {
+        console.warn("Project metadata check failed. Continuing with existing-project assumptions.", err);
+      }
+
+      try {
+        const memberDoc = await memberRef.get();
+        if (memberDoc.exists) {
+          return memberDoc.data();
+        }
+      } catch (err) {
+        if (err.code !== "permission-denied") {
+          throw err;
+        }
+        console.warn("Membership read denied. Attempting self-provisioning with Firestore rules.", err);
+      }
+
+      const memberData = {
+        email: user.email,
+        displayName,
+        role: projectExists ? "editor" : "owner",
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        createdBy: user.uid,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedBy: user.uid
+      };
+
+      try {
+        await memberRef.set(memberData, { merge: true });
+        if (!projectExists) {
+          await projectRef.set({
+            name: "Neurotibb Product Roadmap",
+            description: "Interactive phase-based roadmap for coordinating products, timelines, and feature releases.",
+            documentOwner: "Neurotibb Product Team",
+            version: "v1.2.0",
+            status: "Active",
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            createdBy: user.uid,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedBy: user.uid
+          }, { merge: true });
+        }
+        console.log("Project membership created for", user.email, "as", memberData.role);
+        return memberData;
+      } catch (err) {
+        throw new Error(getAuthErrorMessage(err));
+      }
     }
 
     setupUserUI() {
@@ -449,6 +521,7 @@
       } catch (err) {
         console.error("Google sign in failed:", err);
         showAuthOverlay(true, "Sign In Failed: " + err.message);
+        throw err;
       }
     }
 
@@ -457,7 +530,8 @@
         await firebase.auth().signInWithEmailAndPassword(email, password);
       } catch (err) {
         console.error("Email sign in failed:", err);
-        showAuthOverlay(true, "Sign In Failed: " + err.message);
+        showAuthOverlay(true, "Sign In Failed: " + getAuthErrorMessage(err));
+        throw err;
       }
     }
 
@@ -466,7 +540,8 @@
         await firebase.auth().createUserWithEmailAndPassword(email, password);
       } catch (err) {
         console.error("Register failed:", err);
-        showAuthOverlay(true, "Registration Failed: " + err.message);
+        showAuthOverlay(true, "Registration Failed: " + getAuthErrorMessage(err));
+        throw err;
       }
     }
 
@@ -2379,7 +2454,7 @@
          try {
            await timeoutPromise(store.signInWithEmail(email, password), 8000, "Sign in request timed out. Please check your internet connection.");
          } catch (err) {
-           showAuthOverlay(true, "Sign In Failed: " + err.message);
+           showAuthOverlay(true, "Sign In Failed: " + getAuthErrorMessage(err));
          } finally {
            setAuthLoading(false);
          }
@@ -2395,7 +2470,7 @@
          try {
            await timeoutPromise(store.signInWithGoogle(), 8000, "Google login request timed out. Please check your internet connection.");
          } catch (err) {
-           showAuthOverlay(true, "Sign In Failed: " + err.message);
+           showAuthOverlay(true, "Sign In Failed: " + getAuthErrorMessage(err));
          } finally {
            setAuthLoading(false);
          }
@@ -2417,7 +2492,7 @@
          try {
            await timeoutPromise(store.signUpWithEmail(email, password), 8000, "Registration request timed out. Please check your internet connection.");
          } catch (err) {
-           showAuthOverlay(true, "Registration Failed: " + err.message);
+           showAuthOverlay(true, "Registration Failed: " + getAuthErrorMessage(err));
          } finally {
            setAuthLoading(false);
          }

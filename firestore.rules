@@ -7,6 +7,10 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isSelf(userId) {
+      return isAuth() && request.auth.uid == userId;
+    }
+
     // Check if user is a member of the project
     function isMember(projectId) {
       return isAuth() && exists(/databases/$(database)/documents/projects/$(projectId)/members/$(request.auth.uid));
@@ -22,20 +26,39 @@ service cloud.firestore {
       return getMember(projectId).data.role;
     }
 
+    function hasValidRole() {
+      return request.resource.data.role in ['owner', 'editor', 'viewer'];
+    }
+
+    function isSelfMemberCreate(projectId, userId) {
+      return isSelf(userId)
+        && !exists(/databases/$(database)/documents/projects/$(projectId)/members/$(userId))
+        && hasValidRole()
+        && request.resource.data.email == request.auth.token.email
+        && (
+          (!exists(/databases/$(database)/documents/projects/$(projectId)) && request.resource.data.role == 'owner') ||
+          (exists(/databases/$(database)/documents/projects/$(projectId)) && request.resource.data.role == 'editor')
+        );
+    }
+
     // Scoped rules under projects/{projectId}
     match /projects/{projectId} {
       
       // Project metadata: members can read; owners can write
-      allow read: if isMember(projectId);
-      allow write: if isMember(projectId) && getRole(projectId) == 'owner';
+      allow get: if isAuth();
+      allow list: if isMember(projectId);
+      allow create: if isAuth() && request.resource.data.createdBy == request.auth.uid;
+      allow update, delete: if isMember(projectId) && getRole(projectId) == 'owner';
 
       // Members subcollection
       match /members/{userId} {
-        allow read: if isMember(projectId);
+        allow get: if isMember(projectId) || isSelf(userId);
+        allow list: if isMember(projectId);
         
-        // Allow initial owner setup: if the project metadata document does not exist yet, allow the user to create their member doc as 'owner'. Otherwise, only project owners can add members.
+        // Allow users to provision their own project membership after Firebase Auth succeeds.
+        // Existing owners can still add members explicitly.
         allow create: if isAuth() && (
-          (!exists(/databases/$(database)/documents/projects/$(projectId)) && request.resource.data.role == 'owner') ||
+          isSelfMemberCreate(projectId, userId) ||
           (exists(/databases/$(database)/documents/projects/$(projectId)) && isMember(projectId) && getRole(projectId) == 'owner')
         );
         
