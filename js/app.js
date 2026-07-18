@@ -254,6 +254,7 @@
               this.userRole = memberDoc.data().role || 'viewer';
               this.currentUser = { uid: user.uid, email: user.email, displayName: memberDoc.data().displayName || user.email.split('@')[0], role: this.userRole };
               
+              await this.checkAndSeedDatabase();
               this.setupUserUI();
               this.startRealtimeListeners();
             } else {
@@ -270,6 +271,7 @@
                 this.userRole = "owner";
                 this.currentUser = { uid: user.uid, email: user.email, displayName: ownerData.displayName, role: "owner" };
                 
+                await this.checkAndSeedDatabase();
                 this.setupUserUI();
                 this.startRealtimeListeners();
               } else {
@@ -1166,6 +1168,20 @@
         console.log("Migration completed.");
       } catch (err) {
         console.error("Migration failed: ", err);
+      }
+    }
+
+    async checkAndSeedDatabase() {
+      if (!this.db || this.userRole !== 'owner') return;
+      try {
+        const platformsSnap = await this.db.collection("projects").doc("aana").collection("platforms").limit(1).get();
+        const phasesSnap = await this.db.collection("projects").doc("aana").collection("phases").limit(1).get();
+        if (platformsSnap.empty && phasesSnap.empty) {
+          console.log("Database is empty. Automatically seeding initial structure...");
+          await this.seedInitialData();
+        }
+      } catch (err) {
+        console.error("Check and seed failed:", err);
       }
     }
 
