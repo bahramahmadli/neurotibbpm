@@ -206,6 +206,12 @@
             this.app = firebase.app();
           }
           this.db = firebase.firestore(this.app);
+          try {
+            this.db.settings({ experimentalForceLongPolling: true });
+            console.log("Firestore settings applied: forced long-polling.");
+          } catch (e) {
+            console.warn("Could not apply Firestore settings:", e);
+          }
           console.log("Firebase Compat SDK initialized successfully.");
         } else {
           console.warn("Firebase global SDK not found.");
