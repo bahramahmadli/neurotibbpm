@@ -154,6 +154,27 @@
     } else {
       authErrorMsg.style.display = 'none';
     }
+
+    // Handle local file:// protocol warnings and button disabling
+    const authFileWarning = document.getElementById('authFileWarning');
+    const btnGoogleSignIn = document.getElementById('btnGoogleSignIn');
+    if (authFileWarning && btnGoogleSignIn) {
+      if (show && window.location.protocol === 'file:') {
+        authFileWarning.style.display = 'block';
+        btnGoogleSignIn.disabled = true;
+        btnGoogleSignIn.style.opacity = '0.5';
+        btnGoogleSignIn.style.cursor = 'not-allowed';
+        btnGoogleSignIn.title = "Google Sign-In is not supported when running via file:// protocol.";
+      } else {
+        authFileWarning.style.display = 'none';
+        if (btnGoogleSignIn.disabled) {
+          btnGoogleSignIn.disabled = false;
+          btnGoogleSignIn.style.opacity = '1';
+          btnGoogleSignIn.style.cursor = 'pointer';
+          btnGoogleSignIn.title = "";
+        }
+      }
+    }
   }
 
   class DataStore {
