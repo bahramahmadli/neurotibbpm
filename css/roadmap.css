@@ -1,0 +1,306 @@
+.roadmap-canvas-wrapper {
+  flex: 1;
+  overflow: auto;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  background-color: #ffffff;
+  position: relative;
+  box-shadow: var(--shadow-sm);
+}
+
+.roadmap-canvas {
+  display: grid;
+  /* Columns and rows will be set dynamically via style property in JS (grid-template-columns) */
+  min-height: 100%;
+  width: max-content;
+  min-width: 100%;
+}
+
+/* Grid Headers */
+.grid-header-cell {
+  background-color: #ffffff;
+  padding: 16px;
+  border-bottom: 2px solid var(--border-color);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  transition: background-color var(--transition-fast);
+}
+
+.grid-header-cell.platform-label-header {
+  left: 0;
+  z-index: 20;
+  background-color: #ffffff;
+  border-right: 2px solid var(--border-color);
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 1.1rem;
+  justify-content: center;
+  color: var(--text-primary);
+}
+
+/* Phase Header Layout */
+.phase-header-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.phase-name-text {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  padding: 2px 4px;
+}
+
+.phase-name-text[contenteditable="true"]:hover {
+  background-color: var(--bg-surface-light);
+}
+
+.phase-name-text[contenteditable="true"]:focus {
+  background-color: #ffffff;
+  outline: 1.5px solid var(--border-focus);
+}
+
+.phase-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.grid-header-cell:hover .phase-actions {
+  opacity: 1;
+}
+
+.phase-btn {
+  padding: 2px;
+  border-radius: 4px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.phase-btn:hover {
+  background-color: var(--bg-surface-light);
+  color: var(--text-primary);
+}
+
+.phase-btn.btn-delete-phase:hover {
+  color: var(--color-danger);
+}
+
+/* Phase Period and Objective styling */
+.phase-period {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-bottom: 6px;
+  border-radius: var(--radius-sm);
+  padding: 2px 4px;
+  display: inline-block;
+  cursor: text;
+}
+
+.phase-period[contenteditable="true"]:hover {
+  background-color: var(--bg-surface-light);
+}
+
+.phase-period[contenteditable="true"]:focus {
+  background-color: #ffffff;
+  outline: 1.5px solid var(--border-focus);
+}
+
+.phase-objective {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.3;
+  font-style: italic;
+  border-radius: var(--radius-sm);
+  padding: 2px 4px;
+  margin-top: 4px;
+}
+
+.phase-objective[contenteditable="true"]:hover {
+  background-color: var(--bg-surface-light);
+}
+
+.phase-objective[contenteditable="true"]:focus {
+  background-color: #ffffff;
+  outline: 1.5px solid var(--border-focus);
+}
+
+/* Left Platform Column Labels */
+.grid-platform-label-cell {
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  background-color: #ffffff;
+  padding: 16px;
+  border-right: 2px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-family: var(--font-heading);
+  font-weight: 550;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.platform-name-text {
+  flex: 1;
+  border-radius: var(--radius-sm);
+  padding: 2px 4px;
+}
+
+.platform-name-text[contenteditable="true"]:hover {
+  background-color: var(--bg-surface-light);
+}
+
+.platform-name-text[contenteditable="true"]:focus {
+  background-color: #ffffff;
+  outline: 1.5px solid var(--border-focus);
+}
+
+.platform-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.grid-platform-label-cell:hover .platform-actions {
+  opacity: 1;
+}
+
+/* Grid Cells (Intersection) */
+.grid-cell {
+  background-color: #ffffff;
+  border-right: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  min-height: 120px;
+  position: relative;
+  transition: background-color var(--transition-fast);
+}
+
+/* Cell-level + Add Action styling */
+.cell-add-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 8px;
+  margin-top: auto;
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+  background-color: transparent;
+  opacity: 0;
+}
+
+.grid-cell:hover .cell-add-btn {
+  opacity: 1;
+}
+
+.cell-add-btn:hover {
+  border-style: solid;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background-color: var(--bg-app);
+}
+
+/* Drag and Drop Visual States */
+.grid-cell.drag-over {
+  background-color: var(--bg-surface-light);
+  border: 2px dashed var(--color-primary);
+  padding: 11px; /* Offset for double border */
+}
+
+/* Add Row/Column Grid Buttons */
+.grid-add-column-btn {
+  border-bottom: 2px solid var(--border-color);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-surface-light);
+  color: var(--text-muted);
+  font-family: var(--font-heading);
+  font-weight: 500;
+  cursor: pointer;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  transition: all var(--transition-fast);
+}
+
+.grid-add-column-btn:hover {
+  background-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.grid-add-row-cell {
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  background-color: var(--bg-surface-light);
+  border-right: 2px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  font-family: var(--font-heading);
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.grid-add-row-cell:hover {
+  background-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+/* Empty State filters */
+.roadmap-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--text-muted);
+  grid-column: 1 / -1;
+  background-color: #ffffff;
+}
+
+.roadmap-empty-state svg {
+  width: 48px;
+  height: 48px;
+  color: var(--border-color);
+  margin-bottom: 12px;
+}
+
+.roadmap-empty-state h3 {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}

@@ -1,0 +1,139 @@
+.filter-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  background-color: #ffffff;
+  padding: 12px 16px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 20px;
+  flex-shrink: 0;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-group label {
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.filter-group select {
+  padding: 6px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  outline: none;
+  background-color: #ffffff;
+  min-width: 140px;
+  transition: border-color var(--transition-fast);
+}
+
+.filter-group select:focus {
+  border-color: var(--border-focus);
+}
+
+/* Title Search Input */
+.title-search-group {
+  position: relative;
+  flex: 1;
+  min-width: 200px;
+}
+
+.title-search-group input {
+  width: 100%;
+  padding: 6px 12px 6px 36px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.title-search-group input:focus {
+  border-color: var(--border-focus);
+}
+
+.search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+/* Type Filter Pills */
+.type-filter-options {
+  display: flex;
+  gap: 8px;
+}
+
+.type-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  user-select: none;
+  transition: all var(--transition-fast);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.type-pill input {
+  display: none;
+}
+
+/* Page Pill styling */
+.type-pill.type-page {
+  border-color: var(--type-page-border);
+  background-color: #ffffff;
+  color: var(--type-page-text);
+}
+.type-pill.type-page:has(input:checked) {
+  background-color: var(--type-page-bg);
+  box-shadow: 0 0 0 2px var(--type-page-border);
+}
+
+/* AI Pill styling */
+.type-pill.type-ai {
+  border-color: var(--type-ai-border);
+  background-color: #ffffff;
+  color: var(--type-ai-text);
+}
+.type-pill.type-ai:has(input:checked) {
+  background-color: var(--type-ai-bg);
+  box-shadow: 0 0 0 2px var(--type-ai-border);
+}
+
+/* Feature Pill styling */
+.type-pill.type-feature {
+  border-color: var(--type-feature-border);
+  background-color: #ffffff;
+  color: var(--type-feature-text);
+}
+.type-pill.type-feature:has(input:checked) {
+  background-color: var(--type-feature-bg);
+  box-shadow: 0 0 0 2px var(--type-feature-border);
+}
+
+.btn-clear-filters {
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  margin-left: auto;
+  color: var(--text-muted);
+}
+
+.btn-clear-filters:hover {
+  color: var(--color-primary);
+}

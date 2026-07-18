@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AANA Product Roadmap</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- CSS Stylesheets -->
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/sidebar.css">
+  <link rel="stylesheet" href="css/header.css">
+  <link rel="stylesheet" href="css/filters.css">
+  <link rel="stylesheet" href="css/roadmap.css">
+  <link rel="stylesheet" href="css/card.css">
+  <link rel="stylesheet" href="css/drawer.css">
+  <link rel="stylesheet" href="css/modal.css">
+  <link rel="stylesheet" href="css/confirm.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Sidebar -->
+    <aside class="app-sidebar" id="appSidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">
+          <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+          <span class="logo-text">AANA</span>
+        </div>
+        <button class="sidebar-toggle-btn" id="sidebarToggle" aria-label="Toggle Sidebar">
+          <svg class="toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+        </button>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="#" class="nav-item active" id="navRoadmap" title="Roadmap">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+            <line x1="9" y1="3" x2="9" y2="21"/>
+            <line x1="15" y1="3" x2="15" y2="21"/>
+            <line x1="3" y1="9" x2="21" y2="9"/>
+            <line x1="3" y1="15" x2="21" y2="15"/>
+          </svg>
+          <span class="nav-label">Roadmap</span>
+        </a>
+        <a href="#" class="nav-item disabled" title="Tasks (Coming Soon)">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 11l3 3L22 4"/>
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+          </svg>
+          <span class="nav-label">Tasks</span>
+        </a>
+        <a href="#" class="nav-item disabled" title="Analytics (Coming Soon)">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="20" x2="18" y2="10"/>
+            <line x1="12" y1="20" x2="12" y2="4"/>
+            <line x1="6" y1="20" x2="6" y2="14"/>
+          </svg>
+          <span class="nav-label">Analytics</span>
+        </a>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="app-main">
+      <!-- Top Header -->
+      <header class="app-header">
+        <div class="header-main">
+          <div class="title-section">
+            <h1 class="project-title" id="projectTitle" contenteditable="true" spellcheck="false">AANA Product Roadmap</h1>
+            <p class="project-description" id="projectDesc" contenteditable="true" spellcheck="false">Interactive phase-based roadmap for coordinating products, timelines, and feature releases.</p>
+          </div>
+          <button class="btn btn-primary" id="btnAddNewItem">
+            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="12" y1="5" x2="12" y2="19"/>
+              <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            <span>Add Item</span>
+          </button>
+        </div>
+        <div class="header-metadata">
+          <div class="meta-item">
+            <span class="meta-label">Owner:</span>
+            <span class="meta-value" id="metaOwner" contenteditable="true" spellcheck="false">AANA Product Team</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Version:</span>
+            <span class="meta-value" id="metaVersion" contenteditable="true" spellcheck="false">v1.2.0</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Last Updated:</span>
+            <span class="meta-value" id="metaLastUpdated" contenteditable="true" spellcheck="false">Today</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Status:</span>
+            <span class="meta-value meta-status-badge" id="metaStatus" contenteditable="true" spellcheck="false">Active</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- Filter Toolbar -->
+      <section class="filter-toolbar" aria-label="Filters">
+        <div class="filter-group title-search-group">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input type="text" id="searchTitle" placeholder="Search roadmap items..." aria-label="Search title">
+        </div>
+        <div class="filter-group">
+          <label for="filterPlatform">Platform:</label>
+          <select id="filterPlatform" aria-label="Filter by platform">
+            <option value="">All Platforms</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="filterPhase">Phase:</label>
+          <select id="filterPhase" aria-label="Filter by phase">
+            <option value="">All Phases</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label>Type:</label>
+          <div class="type-filter-options">
+            <label class="type-pill type-page" for="typeFilterPage">
+              <input type="checkbox" id="typeFilterPage" value="page" checked>
+              <span>Page</span>
+            </label>
+            <label class="type-pill type-ai" for="typeFilterAi">
+              <input type="checkbox" id="typeFilterAi" value="ai" checked>
+              <span>AI</span>
+            </label>
+            <label class="type-pill type-feature" for="typeFilterFeature">
+              <input type="checkbox" id="typeFilterFeature" value="feature" checked>
+              <span>Feature</span>
+            </label>
+          </div>
+        </div>
+        <button class="btn btn-text btn-clear-filters" id="btnClearFilters" style="display: none;">Clear Filters</button>
+      </section>
+
+      <!-- Swimlane Canvas Wrapper -->
+      <div class="roadmap-canvas-wrapper">
+        <div class="roadmap-canvas" id="roadmapCanvas">
+          <!-- Rendered dynamically by roadmap.js -->
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Right Drawer (Add/Edit Item) -->
+  <div class="drawer-overlay" id="drawerOverlay">
+    <div class="drawer" id="itemDrawer" role="dialog" aria-labelledby="drawerTitle">
+      <div class="drawer-header">
+        <h2 id="drawerTitle">Add Roadmap Item</h2>
+        <button class="drawer-close-btn" id="drawerClose" aria-label="Close Drawer">&times;</button>
+      </div>
+      <form id="itemForm" class="drawer-body" novalidate>
+        <input type="hidden" id="formItemId">
+        
+        <div class="form-field">
+          <label for="formItemTitle">Title <span class="required">*</span></label>
+          <input type="text" id="formItemTitle" placeholder="Enter function title..." required>
+          <span class="error-msg" id="errItemTitle">Title is required.</span>
+        </div>
+
+        <div class="form-field">
+          <label for="formItemPlatform">Platforma <span class="required">*</span></label>
+          <select id="formItemPlatform" required>
+            <option value="">Select Platform</option>
+          </select>
+          <span class="error-msg" id="errItemPlatform">Platform is required.</span>
+        </div>
+
+        <div class="form-field">
+          <label for="formItemPhase">Phase <span class="required">*</span></label>
+          <select id="formItemPhase" required>
+            <option value="">Select Phase</option>
+          </select>
+          <span class="error-msg" id="errItemPhase">Phase is required.</span>
+        </div>
+
+        <div class="form-field">
+          <label>Type <span class="required">*</span></label>
+          <div class="form-type-options">
+            <label class="form-type-radio type-page">
+              <input type="radio" name="formItemType" value="page" required>
+              <span>Page</span>
+            </label>
+            <label class="form-type-radio type-ai">
+              <input type="radio" name="formItemType" value="ai" required>
+              <span>AI</span>
+            </label>
+            <label class="form-type-radio type-feature">
+              <input type="radio" name="formItemType" value="feature" required>
+              <span>Feature</span>
+            </label>
+          </div>
+          <span class="error-msg" id="errItemType">Type selection is required.</span>
+        </div>
+
+        <div class="drawer-actions">
+          <button type="button" class="btn btn-secondary" id="btnCancelDrawer">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btnSaveDrawer">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Popup Modal (Roadmap Item Details) -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal" id="detailsModal" role="dialog" aria-labelledby="modalTitle">
+      <div class="modal-header">
+        <div class="modal-title-area">
+          <h2 id="modalTitle">Item Details</h2>
+          <div class="modal-badges" id="modalBadges">
+            <!-- Badges render dynamically -->
+          </div>
+        </div>
+        <div class="modal-actions-top">
+          <button class="btn btn-secondary btn-sm" id="btnEditModal">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px; margin-right: 4px;">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+            Edit
+          </button>
+          <button class="modal-close-btn" id="modalClose" aria-label="Close Details Modal">&times;</button>
+        </div>
+      </div>
+      
+      <div class="modal-body">
+        <!-- Figma Embed Section -->
+        <div class="embed-section">
+          <div class="embed-section-header">
+            <h3>Figma Design & Flowchart</h3>
+            <div class="embed-actions" id="figmaActions">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+          <div class="embed-content-container" id="figmaContainer">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+
+        <!-- Document Embed Section -->
+        <div class="embed-section">
+          <div class="embed-section-header">
+            <h3>Product Requirements Document (PRD)</h3>
+            <div class="embed-actions" id="docActions">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+          <div class="embed-content-container" id="docContainer">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reusable Custom Confirmation Modal -->
+  <div class="confirm-overlay" id="confirmOverlay">
+    <div class="confirm-modal" role="dialog" aria-labelledby="confirmTitle">
+      <h3 id="confirmTitle">Delete Confirmation</h3>
+      <p id="confirmMessage">Are you sure you want to proceed with this action?</p>
+      <div class="confirm-actions">
+        <button class="btn btn-secondary" id="btnCancelConfirm">Cancel</button>
+        <button class="btn btn-danger" id="btnProceedConfirm">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase Compat SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  
+  <!-- Main Application Logic -->
+  <script src="js/app.js"></script>
+</body>
+</html>

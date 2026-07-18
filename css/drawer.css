@@ -1,0 +1,202 @@
+.drawer-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(2px);
+  z-index: 200;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-normal);
+}
+
+.drawer-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 100%;
+  max-width: 440px;
+  height: 100%;
+  background-color: #ffffff;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform var(--transition-normal) cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.drawer-overlay.active .drawer {
+  transform: translateX(0);
+}
+
+.drawer-header {
+  padding: 24px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.drawer-header h2 {
+  font-family: var(--font-heading);
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.drawer-close-btn {
+  font-size: 1.8rem;
+  color: var(--text-muted);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.drawer-close-btn:hover {
+  background-color: var(--bg-surface-light);
+  color: var(--text-primary);
+}
+
+.drawer-body {
+  padding: 24px;
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Form Styling */
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-field label {
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.form-field label .required {
+  color: var(--color-danger);
+}
+
+.form-field input[type="text"],
+.form-field select {
+  padding: 10px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  outline: none;
+  background-color: #ffffff;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  font-size: 0.95rem;
+}
+
+.form-field input[type="text"]:focus,
+.form-field select:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+/* Form validation error styling */
+.form-field.invalid input[type="text"],
+.form-field.invalid select {
+  border-color: var(--color-danger);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+}
+
+.error-msg {
+  color: var(--color-danger);
+  font-size: 0.8rem;
+  font-weight: 500;
+  display: none;
+  margin-top: 2px;
+}
+
+.form-field.invalid .error-msg {
+  display: block;
+}
+
+/* Form Type Radio Badges */
+.form-type-options {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.form-type-radio {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all var(--transition-fast);
+  user-select: none;
+}
+
+.form-type-radio input[type="radio"] {
+  display: none;
+}
+
+/* Radio Specific coloring */
+.form-type-radio.type-page {
+  color: var(--type-page-text);
+  border-color: var(--type-page-border);
+}
+.form-type-radio.type-page:has(input:checked) {
+  background-color: var(--type-page-bg);
+  box-shadow: 0 0 0 2px var(--type-page-text);
+}
+
+.form-type-radio.type-ai {
+  color: var(--type-ai-text);
+  border-color: var(--type-ai-border);
+}
+.form-type-radio.type-ai:has(input:checked) {
+  background-color: var(--type-ai-bg);
+  box-shadow: 0 0 0 2px var(--type-ai-text);
+}
+
+.form-type-radio.type-feature {
+  color: var(--type-feature-text);
+  border-color: var(--type-feature-border);
+}
+.form-type-radio.type-feature:has(input:checked) {
+  background-color: var(--type-feature-bg);
+  box-shadow: 0 0 0 2px var(--type-feature-text);
+}
+
+.form-field.invalid .form-type-options {
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  border-radius: var(--radius-md);
+  padding: 4px;
+}
+
+.drawer-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.drawer-actions .btn {
+  flex: 1;
+  padding: 12px;
+}
