@@ -2377,7 +2377,9 @@
          showAuthOverlay(true);
          setAuthLoading(true, "Signing In...");
          try {
-           await store.signInWithEmail(email, password);
+           await timeoutPromise(store.signInWithEmail(email, password), 8000, "Sign in request timed out. Please check your internet connection.");
+         } catch (err) {
+           showAuthOverlay(true, "Sign In Failed: " + err.message);
          } finally {
            setAuthLoading(false);
          }
@@ -2391,7 +2393,9 @@
          showAuthOverlay(true);
          setAuthLoading(true, "Redirecting...");
          try {
-           await store.signInWithGoogle();
+           await timeoutPromise(store.signInWithGoogle(), 8000, "Google login request timed out. Please check your internet connection.");
+         } catch (err) {
+           showAuthOverlay(true, "Sign In Failed: " + err.message);
          } finally {
            setAuthLoading(false);
          }
@@ -2411,7 +2415,9 @@
          showAuthOverlay(true);
          setAuthLoading(true, "Registering...");
          try {
-           await store.signUpWithEmail(email, password);
+           await timeoutPromise(store.signUpWithEmail(email, password), 8000, "Registration request timed out. Please check your internet connection.");
+         } catch (err) {
+           showAuthOverlay(true, "Registration Failed: " + err.message);
          } finally {
            setAuthLoading(false);
          }
