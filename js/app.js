@@ -1949,8 +1949,8 @@
               </button>
             </div>
           </div>
-          <div class="phase-period" data-phase-id="${phase.id}" contenteditable="true" spellcheck="false" title="Click to edit period">${escapeHTML(phase.period)}</div>
-          <div class="phase-objective" data-phase-id="${phase.id}" contenteditable="true" spellcheck="false" placeholder="Phase objective...">${escapeHTML(phase.objective || 'Double click to add objective...')}</div>
+          <div class="phase-period" data-phase-id="${phase.id}" contenteditable="true" spellcheck="false" title="Click to edit period">${escapeHTML(phase.period || '')}</div>
+          <div class="phase-objective" data-phase-id="${phase.id}" contenteditable="true" spellcheck="false">${escapeHTML(phase.objective || '')}</div>
         </div>
       `;
     });

@@ -107,3 +107,10 @@
   text-transform: uppercase;
   color: var(--text-secondary);
 }
+
+#btnAddNewItem {
+  white-space: nowrap;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
