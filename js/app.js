@@ -1168,6 +1168,79 @@
         console.error("Migration failed: ", err);
       }
     }
+
+    async seedInitialData() {
+      if (!this.db) return;
+      showSaveStatus('saving');
+      try {
+        const batch = this.db.batch();
+        const projectRef = this.db.collection("projects").doc("aana");
+        const userId = this.currentUser ? this.currentUser.uid : "system";
+
+        // Seed Project Metadata
+        batch.set(projectRef, {
+          name: "AANA Product Roadmap",
+          description: "Interactive phase-based roadmap for coordinating products, timelines, and feature releases.",
+          documentOwner: "AANA Product Team",
+          version: "v1.2.0",
+          status: "Active",
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          createdBy: userId,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          updatedBy: userId
+        }, { merge: true });
+
+        // Seed Platforms
+        const initialPlatforms = [
+          { id: "platform-website", name: "Website", sortOrder: 1 },
+          { id: "platform-valideyn", name: "Valideyn paneli", sortOrder: 2 },
+          { id: "platform-hekim", name: "Həkim paneli", sortOrder: 3 }
+        ];
+        initialPlatforms.forEach(p => {
+          const ref = projectRef.collection("platforms").doc(p.id);
+          batch.set(ref, {
+            name: p.name,
+            sortOrder: p.sortOrder,
+            isArchived: false,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            createdBy: userId,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedBy: userId
+          });
+        });
+
+        // Seed Phases
+        const initialPhases = [
+          { id: "phase-mvp", name: "MVP", startDate: "2025-07-01", endDate: "2025-09-30", objective: "Minimum Viable Product release", sortOrder: 1, status: "Active", isArchived: false },
+          { id: "phase-p2", name: "Phase 2", startDate: "2025-10-01", endDate: "2025-12-31", objective: "Core enhancements and scaling", sortOrder: 2, status: "Active", isArchived: false },
+          { id: "phase-p3", name: "Phase 3", startDate: "2026-01-01", endDate: "2026-03-31", objective: "Advanced AI integration", sortOrder: 3, status: "Active", isArchived: false },
+          { id: "phase-p4", name: "Phase 4", startDate: "2026-04-01", endDate: "2026-06-30", objective: "Full ecosystem features", sortOrder: 4, status: "Active", isArchived: false }
+        ];
+        initialPhases.forEach(ph => {
+          const ref = projectRef.collection("phases").doc(ph.id);
+          batch.set(ref, {
+            name: ph.name,
+            startDate: ph.startDate,
+            endDate: ph.endDate,
+            objective: ph.objective,
+            sortOrder: ph.sortOrder,
+            status: ph.status,
+            isArchived: false,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            createdBy: userId,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedBy: userId
+          });
+        });
+
+        await batch.commit();
+        showSaveStatus('saved');
+        console.log("Database successfully seeded with default roadmap structure.");
+      } catch (err) {
+        console.error("Error seeding default roadmap structure:", err);
+        showSaveStatus('failed', err.message);
+      }
+    }
   }
 
   const store = new DataStore();
