@@ -33,10 +33,10 @@ service cloud.firestore {
       match /members/{userId} {
         allow read: if isMember(projectId);
         
-        // Allow initial owner setup: if no members exist in the project, allow anyone who is authenticated to create their member doc as 'owner'
+        // Allow initial owner setup: if the project metadata document does not exist yet, allow the user to create their member doc as 'owner'. Otherwise, only project owners can add members.
         allow create: if isAuth() && (
-          exists(/databases/$(database)/documents/projects/$(projectId)/members/$(request.auth.uid)) ||
-          request.resource.data.role == 'owner'
+          (!exists(/databases/$(database)/documents/projects/$(projectId)) && request.resource.data.role == 'owner') ||
+          (exists(/databases/$(database)/documents/projects/$(projectId)) && isMember(projectId) && getRole(projectId) == 'owner')
         );
         
         // Owners can manage members roles
