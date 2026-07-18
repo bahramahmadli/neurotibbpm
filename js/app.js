@@ -71,15 +71,99 @@
     measurementId: "G-8MH3YXSSGT"
   };
 
+  function formatPeriod(startDate, endDate) {
+    if (!startDate || !endDate) return '';
+    const s = new Date(startDate);
+    const e = new Date(endDate);
+    if (isNaN(s.getTime()) || isNaN(e.getTime())) return '';
+    const formatMonthYear = (d) => {
+      return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    };
+    return `${formatMonthYear(s)} – ${formatMonthYear(e)}`;
+  }
+
+  function parsePeriodToDates(periodStr) {
+    if (!periodStr) return { start: "2025-07-01", end: "2025-09-30" };
+    const parts = periodStr.split(/[–-]/).map(p => p.trim());
+    if (parts.length !== 2) return { start: "2025-07-01", end: "2025-09-30" };
+    
+    const formatDateObj = (d) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    const s = new Date(parts[0]);
+    const e = new Date(parts[1]);
+    
+    return {
+      start: isNaN(s.getTime()) ? "2025-07-01" : formatDateObj(s),
+      end: isNaN(e.getTime()) ? "2025-09-30" : formatDateObj(e)
+    };
+  }
+
+  const saveToast = document.getElementById('saveStatusToast');
+  const toastText = document.getElementById('toastText');
+  
+  function showSaveStatus(status, errorMsg = '') {
+    if (!saveToast) return;
+    saveToast.className = 'save-status-toast active ' + status;
+    if (status === 'saving') {
+      toastText.textContent = 'Saving...';
+    } else if (status === 'saved') {
+      toastText.textContent = 'Saved';
+      setTimeout(() => {
+        if (saveToast.classList.contains('saved')) {
+          saveToast.classList.remove('active');
+        }
+      }, 2000);
+    } else if (status === 'failed') {
+      toastText.textContent = 'Save failed ' + (errorMsg ? `(${errorMsg.substring(0, 40)})` : '');
+      setTimeout(() => {
+        if (saveToast.classList.contains('failed')) {
+          saveToast.classList.remove('active');
+        }
+      }, 4000);
+    }
+  }
+
+  const dbErrorOverlay = document.getElementById('dbErrorOverlay');
+  
+  function showDbError(show, msg = '') {
+    if (!dbErrorOverlay) return;
+    if (show) {
+      dbErrorOverlay.style.display = 'flex';
+      if (msg) {
+        document.getElementById('dbErrorMessage').textContent = msg;
+      }
+    } else {
+      dbErrorOverlay.style.display = 'none';
+    }
+  }
+
+  const authOverlay = document.getElementById('authOverlay');
+  const authErrorMsg = document.getElementById('authErrorMsg');
+  
+  function showAuthOverlay(show, error = '') {
+    if (!authOverlay) return;
+    authOverlay.style.display = show ? 'flex' : 'none';
+    if (error) {
+      authErrorMsg.style.display = 'block';
+      authErrorMsg.textContent = error;
+    } else {
+      authErrorMsg.style.display = 'none';
+    }
+  }
+
   class DataStore {
     constructor() {
       this._data = {
         metadata: {
-          title: "AANA Product Roadmap",
+          name: "AANA Product Roadmap",
           description: "Interactive phase-based roadmap for coordinating products, timelines, and feature releases.",
-          owner: "AANA Product Team",
+          documentOwner: "AANA Product Team",
           version: "v1.2.0",
-          lastUpdated: "Today",
           status: "Active"
         },
         platforms: [],
@@ -87,8 +171,10 @@
         items: []
       };
       this._listeners = {};
+      this._unsubscribes = {};
+      this.currentUser = null;
+      this.userRole = 'viewer';
       
-      // Initialize Firebase (Compat mode) - protected check
       this.app = null;
       this.db = null;
       try {
@@ -101,10 +187,12 @@
           this.db = firebase.firestore(this.app);
           console.log("Firebase Compat SDK initialized successfully.");
         } else {
-          console.warn("Firebase global SDK not found. Running in offline fallback mode.");
+          console.warn("Firebase global SDK not found.");
+          showDbError(true, "Firebase SDK script not loaded. Check network or firewall.");
         }
       } catch (err) {
         console.error("Firebase initialization failed: ", err);
+        showDbError(true, "Firebase initialization failed: " + err.message);
       }
     }
 
@@ -122,103 +210,256 @@
     }
 
     async init() {
-      try {
-        if (!this.db) {
-          throw new Error("Firestore not initialized");
-        }
-        console.log("Fetching from Firestore...");
-        
-        // Fetch Platforms
-        const platformSnap = await this.db.collection("platforms").orderBy("sortOrder").get();
-        const platforms = platformSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-        // Fetch Phases
-        const phaseSnap = await this.db.collection("phases").orderBy("sortOrder").get();
-        const phases = phaseSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-        // Fetch Items
-        const itemSnap = await this.db.collection("items").orderBy("sortOrder").get();
-        const items = itemSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-        // Fetch Metadata
-        const metaDoc = await this.db.collection("settings").doc("project").get();
-        let metadata = this._data.metadata;
-        if (metaDoc.exists) {
-          metadata = metaDoc.data();
-        }
-
-        this._data = { metadata, platforms, phases, items };
-        this.saveToLocalStorage();
-
-        if (platforms.length === 0 && phases.length === 0) {
-          console.log("Firestore empty. Seeding initial structures...");
-          await this.seedInitialData();
-        }
-
-        this.emit("change", this._data);
-      } catch (err) {
-        console.error("Error loading from Firestore: ", err);
-        console.log("Fallback to localStorage...");
-        this.loadFromLocalStorage();
-        
-        // Seed local storage with default if completely empty
-        if (this._data.platforms.length === 0 && this._data.phases.length === 0) {
-          this.seedInitialLocalData();
-        }
-        
-        this.emit("change", this._data);
+      if (!this.db) {
+        showDbError(true, "Firestore database not available.");
+        return;
       }
+
+      firebase.auth().onAuthStateChanged(async (user) => {
+        if (user) {
+          console.log("User logged in:", user.email);
+          
+          try {
+            await this.migrateData();
+            
+            const memberDoc = await this.db.collection("projects").doc("aana").collection("members").doc(user.uid).get();
+            if (memberDoc.exists) {
+              this.userRole = memberDoc.data().role || 'viewer';
+              this.currentUser = { uid: user.uid, email: user.email, displayName: memberDoc.data().displayName || user.email.split('@')[0], role: this.userRole };
+              
+              this.setupUserUI();
+              this.startRealtimeListeners();
+            } else {
+              const membersSnap = await this.db.collection("projects").doc("aana").collection("members").limit(1).get();
+              if (membersSnap.empty) {
+                console.log("Registering first user as project owner");
+                const ownerData = {
+                  email: user.email,
+                  displayName: user.displayName || user.email.split('@')[0],
+                  role: "owner",
+                  createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+                await this.db.collection("projects").doc("aana").collection("members").doc(user.uid).set(ownerData);
+                this.userRole = "owner";
+                this.currentUser = { uid: user.uid, email: user.email, displayName: ownerData.displayName, role: "owner" };
+                
+                this.setupUserUI();
+                this.startRealtimeListeners();
+              } else {
+                console.error("Access Denied: Not a member");
+                await firebase.auth().signOut();
+                showAuthOverlay(true, "Access Denied: You are not a member of the AANA project.");
+              }
+            }
+          } catch (err) {
+            console.error("Auth state resolve error:", err);
+            showAuthOverlay(true, "Authorization error: " + err.message);
+          }
+        } else {
+          console.log("No user authenticated.");
+          this.currentUser = null;
+          this.userRole = 'viewer';
+          this.stopRealtimeListeners();
+          const authSec = document.getElementById('sidebarAuthSection');
+          if (authSec) authSec.style.display = 'none';
+          showAuthOverlay(true);
+        }
+      });
     }
 
-    seedInitialLocalData() {
-      this._data.platforms = [
-        { id: "platform-website", name: "Website", sortOrder: 1 },
-        { id: "platform-valideyn", name: "Valideyn paneli", sortOrder: 2 },
-        { id: "platform-hekim", name: "Həkim paneli", sortOrder: 3 }
-      ];
-
-      this._data.phases = [
-        { id: "phase-mvp", name: "MVP", period: "Jul 2025 – Sep 2025", objective: "Minimum Viable Product release", sortOrder: 1 },
-        { id: "phase-p2", name: "Phase 2", period: "Oct 2025 – Dec 2025", objective: "Core enhancements and scaling", sortOrder: 2 },
-        { id: "phase-p3", name: "Phase 3", period: "Jan 2026 – Mar 2026", objective: "Advanced AI integration", sortOrder: 3 },
-        { id: "phase-p4", name: "Phase 4", period: "Apr 2026 – Jun 2026", objective: "Full ecosystem features", sortOrder: 4 }
-      ];
-      this._data.items = [];
-      this.saveToLocalStorage();
+    setupUserUI() {
+      document.getElementById('userName').textContent = this.currentUser.displayName;
+      document.getElementById('userRole').textContent = this.currentUser.role;
+      document.getElementById('userAvatar').textContent = this.currentUser.displayName.charAt(0).toUpperCase();
+      document.getElementById('sidebarAuthSection').style.display = 'flex';
+      showAuthOverlay(false);
+      
+      const isViewer = this.userRole === 'viewer';
+      const addNewItemBtn = document.getElementById('btnAddNewItem');
+      if (addNewItemBtn) {
+        addNewItemBtn.style.display = isViewer ? 'none' : 'inline-flex';
+      }
+      
+      const titleEl = document.getElementById("projectTitle");
+      const descEl = document.getElementById("projectDesc");
+      const ownerEl = document.getElementById("metaOwner");
+      const versionEl = document.getElementById("metaVersion");
+      const statusEl = document.getElementById("metaStatus");
+      
+      const editable = this.userRole === 'owner';
+      if (titleEl) titleEl.setAttribute("contenteditable", editable ? "true" : "false");
+      if (descEl) descEl.setAttribute("contenteditable", editable ? "true" : "false");
+      if (ownerEl) ownerEl.setAttribute("contenteditable", editable ? "true" : "false");
+      if (versionEl) versionEl.setAttribute("contenteditable", editable ? "true" : "false");
+      if (statusEl) statusEl.setAttribute("contenteditable", editable ? "true" : "false");
     }
 
-    async seedInitialData() {
-      this.seedInitialLocalData();
+    startRealtimeListeners() {
+      this.stopRealtimeListeners();
       if (!this.db) return;
-
-      try {
-        const batch = this.db.batch();
-        this._data.platforms.forEach(p => {
-          batch.set(this.db.collection("platforms").doc(p.id), { name: p.name, sortOrder: p.sortOrder });
-        });
-        this._data.phases.forEach(ph => {
-          batch.set(this.db.collection("phases").doc(ph.id), { name: ph.name, period: ph.period, objective: ph.objective, sortOrder: ph.sortOrder });
-        });
-        batch.set(this.db.collection("settings").doc("project"), this._data.metadata);
-        await batch.commit();
-      } catch (err) {
-        console.error("Error seeding Firestore:", err);
-      }
-    }
-
-    loadFromLocalStorage() {
-      const local = localStorage.getItem("aana_roadmap_local_cache");
-      if (local) {
-        try {
-          this._data = JSON.parse(local);
-        } catch (e) {
-          console.error("localStorage parse error:", e);
+      
+      const projectRef = this.db.collection("projects").doc("aana");
+      
+      this._unsubscribes.metadata = projectRef.onSnapshot(doc => {
+        if (doc.exists) {
+          const data = doc.data();
+          this._data.metadata = {
+            title: data.name || "AANA Product Roadmap",
+            description: data.description || "",
+            owner: data.documentOwner || "",
+            version: data.version || "",
+            status: data.status || "Active",
+            lastUpdated: data.updatedAt ? formatDate(data.updatedAt.toDate()) : "Recently"
+          };
+          this.emit("change", this._data);
         }
+      }, err => {
+        console.error("Metadata listener error:", err);
+        showDbError(true, "Database read permission error or disconnected: " + err.message);
+      });
+
+      this._unsubscribes.platforms = projectRef.collection("platforms")
+        .where("isArchived", "==", false)
+        .orderBy("sortOrder")
+        .onSnapshot(snap => {
+          this._data.platforms = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          this.emit("change", this._data);
+        }, err => {
+          console.error("Platforms listener error:", err);
+        });
+
+      this._unsubscribes.phases = projectRef.collection("phases")
+        .where("isArchived", "==", false)
+        .orderBy("sortOrder")
+        .onSnapshot(snap => {
+          this._data.phases = snap.docs.map(d => {
+            const data = d.data();
+            return {
+              id: d.id,
+              ...data,
+              period: formatPeriod(data.startDate, data.endDate)
+            };
+          });
+          this.emit("change", this._data);
+        }, err => {
+          console.error("Phases listener error:", err);
+        });
+
+      this._unsubscribes.items = projectRef.collection("items")
+        .where("isArchived", "==", false)
+        .orderBy("sortOrder")
+        .onSnapshot(snap => {
+          this._data.items = snap.docs.map(d => {
+            const data = d.data();
+            return {
+              id: d.id,
+              ...data,
+              figmaUrl: data.figmaEmbedUrl || "",
+              docUrl: data.documentEmbedUrl || ""
+            };
+          });
+          this.emit("change", this._data);
+        }, err => {
+          console.error("Items listener error:", err);
+        });
+        
+      showDbError(false);
+    }
+
+    stopRealtimeListeners() {
+      Object.keys(this._unsubscribes).forEach(key => {
+        if (typeof this._unsubscribes[key] === 'function') {
+          this._unsubscribes[key]();
+        }
+      });
+      this._unsubscribes = {};
+    }
+
+    async signInWithGoogle() {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      try {
+        await firebase.auth().signInWithPopup(provider);
+      } catch (err) {
+        console.error("Google sign in failed:", err);
+        showAuthOverlay(true, "Sign In Failed: " + err.message);
       }
     }
 
-    saveToLocalStorage() {
-      localStorage.setItem("aana_roadmap_local_cache", JSON.stringify(this._data));
+    async signInWithEmail(email, password) {
+      try {
+        await firebase.auth().signInWithEmailAndPassword(email, password);
+      } catch (err) {
+        console.error("Email sign in failed:", err);
+        showAuthOverlay(true, "Sign In Failed: " + err.message);
+      }
+    }
+
+    async signUpWithEmail(email, password) {
+      try {
+        await firebase.auth().createUserWithEmailAndPassword(email, password);
+      } catch (err) {
+        console.error("Register failed:", err);
+        showAuthOverlay(true, "Registration Failed: " + err.message);
+      }
+    }
+
+    async signOut() {
+      try {
+        await firebase.auth().signOut();
+      } catch (err) {
+        console.error("Sign out failed:", err);
+      }
+    }
+
+    validateProject(name) {
+      if (!name || name.trim() === "") throw new Error("Project name cannot be empty.");
+      return true;
+    }
+
+    validatePlatform(name) {
+      if (!name || name.trim() === "") throw new Error("Platform name cannot be empty.");
+      return true;
+    }
+
+    validatePhase(name, startDate, endDate) {
+      if (!name || name.trim() === "") throw new Error("Phase name cannot be empty.");
+      if (!startDate || !endDate) throw new Error("Phase start date and end date are required.");
+      if (!isValidThreeMonthPeriod(startDate, endDate)) {
+        throw new Error("Phase period must cover exactly a 3-month duration.");
+      }
+      return true;
+    }
+
+    validateItem(title, type, platformId, phaseId, sortOrder) {
+      if (!title || title.trim() === "") throw new Error("Roadmap item title cannot be empty.");
+      if (!['page', 'ai', 'feature'].includes(type)) {
+        throw new Error("Roadmap item type must be 'page', 'ai', or 'feature'.");
+      }
+      if (!platformId) throw new Error("platformId is required.");
+      if (!phaseId) throw new Error("phaseId is required.");
+      if (typeof sortOrder !== 'number' || isNaN(sortOrder)) {
+        throw new Error("sortOrder must be a valid number.");
+      }
+      return true;
+    }
+
+    async logAudit(action, entityType, entityId, changedFields) {
+      if (!this.db) return;
+      try {
+        const logId = generateId();
+        const logRef = this.db.collection("projects").doc("aana").collection("auditLogs").doc(logId);
+        await logRef.set({
+          action,
+          entityType,
+          entityId,
+          changedFields: changedFields || {},
+          userId: this.currentUser ? this.currentUser.uid : "system",
+          userEmail: this.currentUser ? this.currentUser.email : "system@aana.com",
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      } catch (err) {
+        console.error("Failed to write audit log:", err);
+      }
     }
 
     getMetadata() {
@@ -226,15 +467,39 @@
     }
 
     async updateMetadata(fields) {
-      this._data.metadata = { ...this._data.metadata, ...fields };
-      this.saveToLocalStorage();
+      if (this.userRole !== 'owner') {
+        alert("Permission denied. Only owners can edit project metadata.");
+        return;
+      }
+      
+      const updateData = {};
+      if (fields.title !== undefined) updateData.name = fields.title;
+      if (fields.description !== undefined) updateData.description = fields.description;
+      if (fields.owner !== undefined) updateData.documentOwner = fields.owner;
+      if (fields.version !== undefined) updateData.version = fields.version;
+      if (fields.status !== undefined) updateData.status = fields.status;
+
+      try {
+        if (updateData.name !== undefined) this.validateProject(updateData.name);
+      } catch (e) {
+        alert(e.message);
+        return;
+      }
+
+      Object.assign(this._data.metadata, fields);
       this.emit("change", this._data);
 
       if (!this.db) return;
+      showSaveStatus('saving');
       try {
-        await this.db.collection("settings").doc("project").set(this._data.metadata);
+        updateData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+        updateData.updatedBy = this.currentUser.uid;
+        await this.db.collection("projects").doc("aana").update(updateData);
+        await this.logAudit("update", "project", "aana", updateData);
+        showSaveStatus('saved');
       } catch (err) {
-        console.error("Firestore updateMetadata sync error:", err);
+        console.error("Firestore updateMetadata error:", err);
+        showSaveStatus('failed', err.message);
       }
     }
 
@@ -243,60 +508,119 @@
     }
 
     async addPlatform(name) {
+      if (this.userRole === 'viewer') {
+        alert("Permission denied. Viewers cannot write.");
+        return;
+      }
+      try {
+        this.validatePlatform(name);
+      } catch (e) {
+        alert(e.message);
+        return;
+      }
+
       const id = generateId();
       const sortOrder = this._data.platforms.length > 0 
         ? Math.max(...this._data.platforms.map(p => p.sortOrder || 0)) + 1 
         : 1;
       
-      const newPlatform = { id, name, sortOrder };
+      const newPlatform = { id, name, sortOrder, isArchived: false };
       this._data.platforms.push(newPlatform);
-      this.saveToLocalStorage();
       this.emit("change", this._data);
 
       if (!this.db) return newPlatform;
+      showSaveStatus('saving');
       try {
-        await this.db.collection("platforms").doc(id).set({ name, sortOrder });
+        const docData = {
+          name,
+          sortOrder,
+          isArchived: false,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          createdBy: this.currentUser.uid,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          updatedBy: this.currentUser.uid
+        };
+        await this.db.collection("projects").doc("aana").collection("platforms").doc(id).set(docData);
+        await this.logAudit("create", "platform", id, docData);
+        showSaveStatus('saved');
       } catch (err) {
-        console.error("Firestore addPlatform sync error:", err);
+        console.error("Firestore addPlatform error:", err);
+        showSaveStatus('failed', err.message);
       }
       return newPlatform;
     }
 
     async updatePlatform(id, name) {
+      if (this.userRole === 'viewer') {
+        alert("Permission denied. Viewers cannot write.");
+        return;
+      }
+      try {
+        this.validatePlatform(name);
+      } catch (e) {
+        alert(e.message);
+        return;
+      }
+
       const platform = this._data.platforms.find(p => p.id === id);
       if (platform) {
         platform.name = name;
-        this.saveToLocalStorage();
         this.emit("change", this._data);
 
         if (!this.db) return;
+        showSaveStatus('saving');
         try {
-          await this.db.collection("platforms").doc(id).update({ name });
+          const updateData = {
+            name,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedBy: this.currentUser.uid
+          };
+          await this.db.collection("projects").doc("aana").collection("platforms").doc(id).update(updateData);
+          await this.logAudit("update", "platform", id, updateData);
+          showSaveStatus('saved');
         } catch (err) {
-          console.error("Firestore updatePlatform sync error:", err);
+          console.error("Firestore updatePlatform error:", err);
+          showSaveStatus('failed', err.message);
         }
       }
     }
 
     async deletePlatform(id) {
-      const itemsToDelete = this._data.items.filter(item => item.platformId === id);
-      this._data.items = this._data.items.filter(item => item.platformId !== id);
-      this._data.platforms = this._data.platforms.filter(p => p.id !== id);
-      
-      this.saveToLocalStorage();
-      this.emit("change", this._data);
-
-      if (!this.db) return;
-      try {
-        const batch = this.db.batch();
-        batch.delete(this.db.collection("platforms").doc(id));
-        itemsToDelete.forEach(item => {
-          batch.delete(this.db.collection("items").doc(item.id));
-        });
-        await batch.commit();
-      } catch (err) {
-        console.error("Firestore deletePlatform sync error:", err);
+      if (this.userRole === 'viewer') {
+        alert("Permission denied. Viewers cannot write.");
+        return false;
       }
+
+      const activeItems = this._data.items.filter(item => item.platformId === id && !item.isArchived);
+      if (activeItems.length > 0) {
+        alert("Cannot delete this platform. There are active roadmap items referencing it. Please re-assign or archive those items first.");
+        return false;
+      }
+
+      const platform = this._data.platforms.find(p => p.id === id);
+      if (platform) {
+        platform.isArchived = true;
+        this.emit("change", this._data);
+
+        if (!this.db) return true;
+        showSaveStatus('saving');
+        try {
+          const updateData = {
+            isArchived: true,
+            archivedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            archivedBy: this.currentUser.uid,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedBy: this.currentUser.uid
+          };
+          await this.db.collection("projects").doc("aana").collection("platforms").doc(id).update(updateData);
+          await this.logAudit("archive", "platform", id, updateData);
+          showSaveStatus('saved');
+        } catch (err) {
+          console.error("Firestore deletePlatform error:", err);
+          showSaveStatus('failed', err.message);
+        }
+      }
+      return true;
     }
 
     getPhases() {
@@ -304,60 +628,150 @@
     }
 
     async addPhase(name, period, objective = "") {
+      if (this.userRole === 'viewer') {
+        alert("Permission denied. Viewers cannot write.");
+        return;
+      }
+
+      const { start, end } = parsePeriodToDates(period);
+      try {
+        this.validatePhase(name, start, end);
+      } catch (e) {
+        alert(e.message);
+        return;
+      }
+
       const id = generateId();
       const sortOrder = this._data.phases.length > 0
         ? Math.max(...this._data.phases.map(p => p.sortOrder || 0)) + 1
         : 1;
 
-      const newPhase = { id, name, period, objective, sortOrder };
+      const newPhase = {
+        id,
+        name,
+        startDate: start,
+        endDate: end,
+        period: formatPeriod(start, end),
+        objective,
+        sortOrder,
+        status: "Active",
+        isArchived: false
+      };
+      
       this._data.phases.push(newPhase);
-      this.saveToLocalStorage();
       this.emit("change", this._data);
 
       if (!this.db) return newPhase;
+      showSaveStatus('saving');
       try {
-        await this.db.collection("phases").doc(id).set({ name, period, objective, sortOrder });
+        const docData = {
+          name,
+          startDate: start,
+          endDate: end,
+          objective,
+          sortOrder,
+          status: "Active",
+          isArchived: false,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          createdBy: this.currentUser.uid,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          updatedBy: this.currentUser.uid
+        };
+        await this.db.collection("projects").doc("aana").collection("phases").doc(id).set(docData);
+        await this.logAudit("create", "phase", id, docData);
+        showSaveStatus('saved');
       } catch (err) {
-        console.error("Firestore addPhase sync error:", err);
+        console.error("Firestore addPhase error:", err);
+        showSaveStatus('failed', err.message);
       }
       return newPhase;
     }
 
     async updatePhase(id, fields) {
-      const phase = this._data.phases.find(p => p.id === id);
-      if (phase) {
-        Object.assign(phase, fields);
-        this.saveToLocalStorage();
-        this.emit("change", this._data);
+      if (this.userRole === 'viewer') {
+        alert("Permission denied. Viewers cannot write.");
+        return;
+      }
 
-        if (!this.db) return;
-        try {
-          await this.db.collection("phases").doc(id).update(fields);
-        } catch (err) {
-          console.error("Firestore updatePhase sync error:", err);
-        }
+      const phase = this._data.phases.find(p => p.id === id);
+      if (!phase) return;
+
+      const updateData = { ...fields };
+      if (updateData.period !== undefined) {
+        const { start, end } = parsePeriodToDates(updateData.period);
+        updateData.startDate = start;
+        updateData.endDate = end;
+        delete updateData.period;
+      }
+
+      try {
+        const targetName = updateData.name !== undefined ? updateData.name : phase.name;
+        const targetStart = updateData.startDate !== undefined ? updateData.startDate : phase.startDate;
+        const targetEnd = updateData.endDate !== undefined ? updateData.endDate : phase.endDate;
+        this.validatePhase(targetName, targetStart, targetEnd);
+      } catch (e) {
+        alert(e.message);
+        return;
+      }
+
+      Object.assign(phase, fields);
+      if (updateData.startDate) {
+        phase.startDate = updateData.startDate;
+        phase.endDate = updateData.endDate;
+        phase.period = formatPeriod(phase.startDate, phase.endDate);
+      }
+      this.emit("change", this._data);
+
+      if (!this.db) return;
+      showSaveStatus('saving');
+      try {
+        updateData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+        updateData.updatedBy = this.currentUser.uid;
+        await this.db.collection("projects").doc("aana").collection("phases").doc(id).update(updateData);
+        await this.logAudit("update", "phase", id, updateData);
+        showSaveStatus('saved');
+      } catch (err) {
+        console.error("Firestore updatePhase error:", err);
+        showSaveStatus('failed', err.message);
       }
     }
 
     async deletePhase(id) {
-      const itemsToDelete = this._data.items.filter(item => item.phaseId === id);
-      this._data.items = this._data.items.filter(item => item.phaseId !== id);
-      this._data.phases = this._data.phases.filter(ph => ph.id !== id);
-
-      this.saveToLocalStorage();
-      this.emit("change", this._data);
-
-      if (!this.db) return;
-      try {
-        const batch = this.db.batch();
-        batch.delete(this.db.collection("phases").doc(id));
-        itemsToDelete.forEach(item => {
-          batch.delete(this.db.collection("items").doc(item.id));
-        });
-        await batch.commit();
-      } catch (err) {
-        console.error("Firestore deletePhase sync error:", err);
+      if (this.userRole === 'viewer') {
+        alert("Permission denied. Viewers cannot write.");
+        return false;
       }
+
+      const activeItems = this._data.items.filter(item => item.phaseId === id && !item.isArchived);
+      if (activeItems.length > 0) {
+        alert("Cannot delete this phase. There are active roadmap items referencing it. Please re-assign or archive those items first.");
+        return false;
+      }
+
+      const phase = this._data.phases.find(ph => ph.id === id);
+      if (phase) {
+        phase.isArchived = true;
+        this.emit("change", this._data);
+
+        if (!this.db) return true;
+        showSaveStatus('saving');
+        try {
+          const updateData = {
+            isArchived: true,
+            archivedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            archivedBy: this.currentUser.uid,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedBy: this.currentUser.uid
+          };
+          await this.db.collection("projects").doc("aana").collection("phases").doc(id).update(updateData);
+          await this.logAudit("archive", "phase", id, updateData);
+          showSaveStatus('saved');
+        } catch (err) {
+          console.error("Firestore deletePhase error:", err);
+          showSaveStatus('failed', err.message);
+        }
+      }
+      return true;
     }
 
     getItems() {
@@ -366,19 +780,29 @@
 
     getItemsForCell(platformId, phaseId) {
       return this._data.items
-        .filter(item => item.platformId === platformId && item.phaseId === phaseId)
+        .filter(item => item.platformId === platformId && item.phaseId === phaseId && !item.isArchived)
         .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
     }
 
     async addItem(itemData) {
-      const id = generateId();
-      const now = new Date().toISOString();
-      
+      if (this.userRole === 'viewer') {
+        alert("Permission denied. Viewers cannot write.");
+        return;
+      }
+
       const cellItems = this.getItemsForCell(itemData.platformId, itemData.phaseId);
       const sortOrder = cellItems.length > 0
         ? Math.max(...cellItems.map(i => i.sortOrder || 0)) + 1
         : 1;
 
+      try {
+        this.validateItem(itemData.title, itemData.type, itemData.platformId, itemData.phaseId, sortOrder);
+      } catch (e) {
+        alert(e.message);
+        return;
+      }
+
+      const id = generateId();
       const newItem = {
         id,
         title: itemData.title,
@@ -388,66 +812,103 @@
         figmaUrl: itemData.figmaUrl || "",
         docUrl: itemData.docUrl || "",
         sortOrder,
-        createdDate: now,
-        updatedDate: now
+        isArchived: false
       };
 
       this._data.items.push(newItem);
-      this.saveToLocalStorage();
       this.emit("change", this._data);
 
       if (!this.db) return newItem;
+      showSaveStatus('saving');
       try {
-        await this.db.collection("items").doc(id).set({
+        const docData = {
           title: newItem.title,
+          type: newItem.type,
           platformId: newItem.platformId,
           phaseId: newItem.phaseId,
-          type: newItem.type,
-          figmaUrl: newItem.figmaUrl,
-          docUrl: newItem.docUrl,
           sortOrder: newItem.sortOrder,
-          createdDate: newItem.createdDate,
-          updatedDate: newItem.updatedDate
-        });
+          figmaEmbedUrl: newItem.figmaUrl,
+          documentEmbedUrl: newItem.docUrl,
+          isArchived: false,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          createdBy: this.currentUser.uid,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          updatedBy: this.currentUser.uid
+        };
+        await this.db.collection("projects").doc("aana").collection("items").doc(id).set(docData);
+        await this.logAudit("create", "item", id, docData);
+        showSaveStatus('saved');
       } catch (err) {
-        console.error("Firestore addItem sync error:", err);
+        console.error("Firestore addItem error:", err);
+        showSaveStatus('failed', err.message);
       }
       return newItem;
     }
 
     async updateItem(id, fields) {
+      if (this.userRole === 'viewer') {
+        alert("Permission denied. Viewers cannot write.");
+        return;
+      }
+
       const item = this._data.items.find(i => i.id === id);
-      if (item) {
-        const now = new Date().toISOString();
-        const updatedFields = { ...fields, updatedDate: now };
+      if (!item) return;
 
-        if (fields.platformId !== undefined || fields.phaseId !== undefined) {
-          const targetPlat = fields.platformId !== undefined ? fields.platformId : item.platformId;
-          const targetPhase = fields.phaseId !== undefined ? fields.phaseId : item.phaseId;
-          
-          if (targetPlat !== item.platformId || targetPhase !== item.phaseId) {
-            const cellItems = this.getItemsForCell(targetPlat, targetPhase);
-            updatedFields.sortOrder = cellItems.length > 0
-              ? Math.max(...cellItems.map(i => i.sortOrder || 0)) + 1
-              : 1;
-          }
+      const updateData = {};
+      if (fields.title !== undefined) updateData.title = fields.title;
+      if (fields.type !== undefined) updateData.type = fields.type;
+      if (fields.platformId !== undefined) updateData.platformId = fields.platformId;
+      if (fields.phaseId !== undefined) updateData.phaseId = fields.phaseId;
+      if (fields.figmaUrl !== undefined) updateData.figmaEmbedUrl = fields.figmaUrl;
+      if (fields.docUrl !== undefined) updateData.documentEmbedUrl = fields.docUrl;
+
+      if (fields.platformId !== undefined || fields.phaseId !== undefined) {
+        const targetPlat = fields.platformId !== undefined ? fields.platformId : item.platformId;
+        const targetPhase = fields.phaseId !== undefined ? fields.phaseId : item.phaseId;
+        
+        if (targetPlat !== item.platformId || targetPhase !== item.phaseId) {
+          const cellItems = this.getItemsForCell(targetPlat, targetPhase);
+          updateData.sortOrder = cellItems.length > 0
+            ? Math.max(...cellItems.map(i => i.sortOrder || 0)) + 1
+            : 1;
         }
+      }
 
-        Object.assign(item, updatedFields);
-        this.saveToLocalStorage();
-        this.emit("change", this._data);
+      try {
+        const targetTitle = updateData.title !== undefined ? updateData.title : item.title;
+        const targetType = updateData.type !== undefined ? updateData.type : item.type;
+        const targetPlat = updateData.platformId !== undefined ? updateData.platformId : item.platformId;
+        const targetPhase = updateData.phaseId !== undefined ? updateData.phaseId : item.phaseId;
+        const targetSort = updateData.sortOrder !== undefined ? updateData.sortOrder : item.sortOrder;
+        this.validateItem(targetTitle, targetType, targetPlat, targetPhase, targetSort);
+      } catch (e) {
+        alert(e.message);
+        return;
+      }
 
-        if (!this.db) return;
-        try {
-          await this.db.collection("items").doc(id).update(updatedFields);
-        } catch (err) {
-          console.error("Firestore updateItem sync error:", err);
-        }
+      Object.assign(item, fields);
+      if (updateData.sortOrder !== undefined) item.sortOrder = updateData.sortOrder;
+      this.emit("change", this._data);
+
+      if (!this.db) return;
+      showSaveStatus('saving');
+      try {
+        updateData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+        updateData.updatedBy = this.currentUser.uid;
+        await this.db.collection("projects").doc("aana").collection("items").doc(id).update(updateData);
+        await this.logAudit("update", "item", id, updateData);
+        showSaveStatus('saved');
+      } catch (err) {
+        console.error("Firestore updateItem error:", err);
+        showSaveStatus('failed', err.message);
       }
     }
 
     async updateItemPositions(itemsToUpdate) {
-      const now = new Date().toISOString();
+      if (this.userRole === 'viewer') {
+        alert("Permission denied. Viewers cannot write.");
+        return;
+      }
 
       itemsToUpdate.forEach(updateInfo => {
         const item = this._data.items.find(i => i.id === updateInfo.id);
@@ -455,47 +916,234 @@
           item.platformId = updateInfo.platformId;
           item.phaseId = updateInfo.phaseId;
           item.sortOrder = updateInfo.sortOrder;
-          item.updatedDate = now;
         }
       });
-
-      this.saveToLocalStorage();
       this.emit("change", this._data);
 
       if (!this.db) return;
+      showSaveStatus('saving');
+      
       try {
         const batch = this.db.batch();
+        const projectRef = this.db.collection("projects").doc("aana");
+        const userId = this.currentUser ? this.currentUser.uid : "system";
+        const userEmail = this.currentUser ? this.currentUser.email : "system@aana.com";
+
         itemsToUpdate.forEach(updateInfo => {
-          const docRef = this.db.collection("items").doc(updateInfo.id);
+          const docRef = projectRef.collection("items").doc(updateInfo.id);
           batch.update(docRef, {
             platformId: updateInfo.platformId,
             phaseId: updateInfo.phaseId,
             sortOrder: updateInfo.sortOrder,
-            updatedDate: now
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedBy: userId
           });
         });
+
+        const logId = generateId();
+        const logRef = projectRef.collection("auditLogs").doc(logId);
+        batch.set(logRef, {
+          action: "reorder",
+          entityType: "item",
+          entityId: itemsToUpdate.map(i => i.id).join(","),
+          changedFields: { items: itemsToUpdate },
+          userId: userId,
+          userEmail: userEmail,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
         await batch.commit();
+        showSaveStatus('saved');
       } catch (err) {
-        console.error("Firestore updateItemPositions sync error:", err);
+        console.error("Firestore updateItemPositions batch error:", err);
+        showSaveStatus('failed', err.message);
+        
+        alert("Save failed. Restoring items to their original positions.");
       }
     }
 
     async deleteItem(id) {
-      this._data.items = this._data.items.filter(i => i.id !== id);
-      this.saveToLocalStorage();
-      this.emit("change", this._data);
+      if (this.userRole === 'viewer') {
+        alert("Permission denied. Viewers cannot write.");
+        return;
+      }
 
+      const item = this._data.items.find(i => i.id === id);
+      if (item) {
+        item.isArchived = true;
+        this.emit("change", this._data);
+
+        if (!this.db) return;
+        showSaveStatus('saving');
+        try {
+          const updateData = {
+            isArchived: true,
+            archivedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            archivedBy: this.currentUser.uid,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedBy: this.currentUser.uid
+          };
+          await this.db.collection("projects").doc("aana").collection("items").doc(id).update(updateData);
+          await this.logAudit("archive", "item", id, updateData);
+          showSaveStatus('saved');
+        } catch (err) {
+          console.error("Firestore deleteItem error:", err);
+          showSaveStatus('failed', err.message);
+        }
+      }
+    }
+
+    async migrateData() {
       if (!this.db) return;
       try {
-        await this.db.collection("items").doc(id).delete();
+        const migrationRef = this.db.collection("projects").doc("aana").collection("settings").doc("migration");
+        const migrationSnap = await migrationRef.get();
+        if (migrationSnap.exists && migrationSnap.data().migrationCompleted) {
+          return;
+        }
+
+        console.log("Starting data migration...");
+        let projectsMigrated = 0;
+        let platformsMigrated = 0;
+        let phasesMigrated = 0;
+        let itemsMigrated = 0;
+        let duplicatesSkipped = 0;
+
+        const oldProjectRef = this.db.collection("settings").doc("project");
+        const oldProjectSnap = await oldProjectRef.get();
+        let projectData = {
+          name: "AANA Product Roadmap",
+          description: "Interactive phase-based roadmap for coordinating products, timelines, and feature releases.",
+          documentOwner: "AANA Product Team",
+          version: "v1.2.0",
+          status: "Active",
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          createdBy: "system",
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          updatedBy: "system"
+        };
+        if (oldProjectSnap.exists) {
+          const oldData = oldProjectSnap.data();
+          projectData.name = oldData.title || projectData.name;
+          projectData.description = oldData.description || projectData.description;
+          projectData.documentOwner = oldData.owner || projectData.documentOwner;
+          projectData.version = oldData.version || projectData.version;
+          projectData.status = oldData.status || projectData.status;
+        }
+        await this.db.collection("projects").doc("aana").set(projectData, { merge: true });
+        projectsMigrated++;
+
+        const oldPlatformsSnap = await this.db.collection("platforms").get();
+        const platformsBatch = this.db.batch();
+        const migratedPlatformIds = new Set();
+        
+        oldPlatformsSnap.docs.forEach(doc => {
+          const data = doc.data();
+          if (migratedPlatformIds.has(doc.id)) {
+            duplicatesSkipped++;
+            return;
+          }
+          migratedPlatformIds.add(doc.id);
+          const newRef = this.db.collection("projects").doc("aana").collection("platforms").doc(doc.id);
+          platformsBatch.set(newRef, {
+            name: data.name || "",
+            sortOrder: Number(data.sortOrder) || 1,
+            isArchived: false,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            createdBy: "system",
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedBy: "system"
+          });
+          platformsMigrated++;
+        });
+        if (platformsMigrated > 0) {
+          await platformsBatch.commit();
+        }
+
+        const oldPhasesSnap = await this.db.collection("phases").get();
+        const phasesBatch = this.db.batch();
+        const migratedPhaseIds = new Set();
+
+        oldPhasesSnap.docs.forEach(doc => {
+          const data = doc.data();
+          if (migratedPhaseIds.has(doc.id)) {
+            duplicatesSkipped++;
+            return;
+          }
+          migratedPhaseIds.add(doc.id);
+          
+          let startDate = "2025-07-01";
+          let endDate = "2025-09-30";
+          if (data.period) {
+            const dates = parsePeriodToDates(data.period);
+            startDate = dates.start;
+            endDate = dates.end;
+          }
+
+          const newRef = this.db.collection("projects").doc("aana").collection("phases").doc(doc.id);
+          phasesBatch.set(newRef, {
+            name: data.name || "",
+            objective: data.objective || "",
+            startDate: startDate,
+            endDate: endDate,
+            sortOrder: Number(data.sortOrder) || 1,
+            status: data.status || "Active",
+            isArchived: false,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            createdBy: "system",
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedBy: "system"
+          });
+          phasesMigrated++;
+        });
+        if (phasesMigrated > 0) {
+          await phasesBatch.commit();
+        }
+
+        const oldItemsSnap = await this.db.collection("items").get();
+        const itemsBatch = this.db.batch();
+        const migratedItemIds = new Set();
+
+        oldItemsSnap.docs.forEach(doc => {
+          const data = doc.data();
+          if (migratedItemIds.has(doc.id)) {
+            duplicatesSkipped++;
+            return;
+          }
+          migratedItemIds.add(doc.id);
+
+          const newRef = this.db.collection("projects").doc("aana").collection("items").doc(doc.id);
+          itemsBatch.set(newRef, {
+            title: data.title || "",
+            type: data.type || "page",
+            platformId: data.platformId || "",
+            phaseId: data.phaseId || "",
+            sortOrder: Number(data.sortOrder) || 1,
+            figmaEmbedUrl: data.figmaUrl || "",
+            documentEmbedUrl: data.docUrl || "",
+            isArchived: false,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            createdBy: "system",
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedBy: "system"
+          });
+          itemsMigrated++;
+        });
+        if (itemsMigrated > 0) {
+          await itemsBatch.commit();
+        }
+
+        await migrationRef.set({ migrationCompleted: true, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
+        localStorage.removeItem("aana_roadmap_local_cache");
+
+        console.log("Migration completed.");
       } catch (err) {
-        console.error("Firestore deleteItem sync error:", err);
+        console.error("Migration failed: ", err);
       }
     }
   }
 
   const store = new DataStore();
-
   // ==========================================
   // 3. REUSABLE CONFIRMATION MODAL
   // ==========================================
@@ -1565,11 +2213,64 @@
       });
     }
 
+    // Auth Form Submit
+    const authForm = document.getElementById("authForm");
+    if (authForm) {
+      authForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const email = document.getElementById("authEmail").value.trim();
+        const password = document.getElementById("authPassword").value;
+        showAuthOverlay(true);
+        await store.signInWithEmail(email, password);
+      });
+    }
+
+    // Google Sign-In Click
+    const btnGoogleSignIn = document.getElementById("btnGoogleSignIn");
+    if (btnGoogleSignIn) {
+      btnGoogleSignIn.addEventListener("click", async () => {
+        showAuthOverlay(true);
+        await store.signInWithGoogle();
+      });
+    }
+
+    // Email Sign-Up Click
+    const btnEmailSignUp = document.getElementById("btnEmailSignUp");
+    if (btnEmailSignUp) {
+      btnEmailSignUp.addEventListener("click", async () => {
+        const email = document.getElementById("authEmail").value.trim();
+        const password = document.getElementById("authPassword").value;
+        if (!email || !password) {
+          showAuthOverlay(true, "Please fill in email and password to register.");
+          return;
+        }
+        showAuthOverlay(true);
+        await store.signUpWithEmail(email, password);
+      });
+    }
+
+    // Sign Out Click
+    const btnSignOut = document.getElementById("btnSignOut");
+    if (btnSignOut) {
+      btnSignOut.addEventListener("click", async () => {
+        await store.signOut();
+      });
+    }
+
+    // Retry Database Connection Click
+    const btnRetryDbConnection = document.getElementById("btnRetryDbConnection");
+    if (btnRetryDbConnection) {
+      btnRetryDbConnection.addEventListener("click", async () => {
+        showDbError(false);
+        await store.init();
+      });
+    }
+
     store.on("change", () => {
       renderRoadmap();
     });
 
-    // Initialize Store (Syncs from Firestore, fallbacks to localStorage)
+    // Initialize Store
     await store.init();
   });
 

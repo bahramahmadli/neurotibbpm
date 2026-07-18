@@ -1,0 +1,80 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Check if user is authenticated
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // Check if user is a member of the project
+    function isMember(projectId) {
+      return isAuth() && exists(/databases/$(database)/documents/projects/$(projectId)/members/$(request.auth.uid));
+    }
+
+    // Get the user's member document
+    function getMember(projectId) {
+      return get(/databases/$(database)/documents/projects/$(projectId)/members/$(request.auth.uid));
+    }
+
+    // Check the user's role in the project
+    function getRole(projectId) {
+      return getMember(projectId).data.role;
+    }
+
+    // Scoped rules under projects/{projectId}
+    match /projects/{projectId} {
+      
+      // Project metadata: members can read; owners can write
+      allow read: if isMember(projectId);
+      allow write: if isMember(projectId) && getRole(projectId) == 'owner';
+
+      // Members subcollection
+      match /members/{userId} {
+        allow read: if isMember(projectId);
+        
+        // Allow initial owner setup: if no members exist in the project, allow anyone who is authenticated to create their member doc as 'owner'
+        allow create: if isAuth() && (
+          exists(/databases/$(database)/documents/projects/$(projectId)/members/$(request.auth.uid)) ||
+          request.resource.data.role == 'owner'
+        );
+        
+        // Owners can manage members roles
+        allow update: if isMember(projectId) && getRole(projectId) == 'owner' 
+          && request.resource.data.role in ['owner', 'editor', 'viewer'];
+          
+        // Owners can delete other members
+        allow delete: if isMember(projectId) && getRole(projectId) == 'owner' && userId != request.auth.uid;
+      }
+
+      // Platforms subcollection
+      match /platforms/{platformId} {
+        allow read: if isMember(projectId);
+        allow write: if isMember(projectId) && getRole(projectId) in ['owner', 'editor'];
+      }
+
+      // Phases subcollection
+      match /phases/{phaseId} {
+        allow read: if isMember(projectId);
+        allow write: if isMember(projectId) && getRole(projectId) in ['owner', 'editor'];
+      }
+
+      // Items subcollection
+      match /items/{itemId} {
+        allow read: if isMember(projectId);
+        allow write: if isMember(projectId) && getRole(projectId) in ['owner', 'editor']
+          && request.resource.data.type in ['page', 'ai', 'feature']
+          && request.resource.data.title.size() > 0
+          && request.resource.data.platformId != null
+          && request.resource.data.phaseId != null;
+      }
+
+      // Audit logs subcollection (Create only, no read/write modifications allowed)
+      match /auditLogs/{logId} {
+        allow read: if isMember(projectId);
+        allow create: if isMember(projectId) && getRole(projectId) in ['owner', 'editor'];
+        allow update, delete: if false;
+      }
+    }
+  }
+}

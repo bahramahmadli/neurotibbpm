@@ -66,6 +66,25 @@
           <span class="nav-label">Analytics</span>
         </a>
       </nav>
+
+      <!-- Sidebar Footer (Auth Info & Sign Out) -->
+      <div class="sidebar-footer" id="sidebarAuthSection" style="display:none; padding: 12px 16px; border-top: 1px solid var(--bg-sidebar-hover); display: flex; flex-direction: column; gap: 8px; font-size: 0.85rem;">
+        <div class="user-info" style="display: flex; align-items: center; gap: 10px; overflow: hidden; white-space: nowrap;">
+          <div class="user-avatar" id="userAvatar" style="width: 32px; height: 32px; border-radius: 50%; background-color: var(--bg-sidebar-active); display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0; color: white;">U</div>
+          <div class="user-details" style="display: flex; flex-direction: column; overflow: hidden;">
+            <span class="user-name" id="userName" style="font-weight: 600; color: var(--text-light); text-overflow: ellipsis; overflow: hidden;">User Name</span>
+            <span class="user-role" id="userRole" style="font-size: 0.75rem; color: var(--text-muted);">viewer</span>
+          </div>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="btnSignOut" style="width: 100%; font-size: 0.8rem; padding: 6px; justify-content: center; border-color: var(--bg-sidebar-hover); background: transparent; color: var(--text-muted); cursor: pointer;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+          <span class="nav-label" style="margin-left: 4px;">Sign Out</span>
+        </button>
+      </div>
     </aside>
 
     <!-- Main Content -->
@@ -278,8 +297,72 @@
     </div>
   </div>
 
+  <!-- Auth Overlay (Google & Email/Password Sign-In) -->
+  <div class="auth-overlay" id="authOverlay" style="display: none;">
+    <div class="auth-card">
+      <div class="auth-header">
+        <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width: 48px; height: 48px; color: var(--color-primary); margin: 0 auto 12px; display: block;">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+        </svg>
+        <h2>NeurotibbPM</h2>
+        <p>AANA Product Roadmap Platform Sign-in</p>
+      </div>
+      <div id="authErrorMsg" class="error-banner" style="display: none; padding: 10px; background-color: #fee2e2; border: 1px solid #fca5a5; color: #ef4444; border-radius: var(--radius-sm); font-size: 0.85rem; margin-bottom: 16px; font-weight: 500;"></div>
+      
+      <!-- Google Auth Button -->
+      <button class="btn btn-secondary" id="btnGoogleSignIn" style="width: 100%; font-weight: 600; justify-content: center; gap: 10px; margin-bottom: 16px; cursor: pointer;">
+        <svg viewBox="0 0 24 24" style="width: 18px; height: 18px;" fill="currentColor">
+          <path d="M12.24 10.285V13.4h6.86c-.277 1.56-1.602 4.585-6.86 4.585-4.54 0-8.24-3.765-8.24-8.4s3.7-8.4 8.24-8.4c2.58 0 4.307 1.095 5.298 2.045l2.465-2.37C18.59 1.21 15.69 0 12.24 0c-6.63 0-12 5.37-12 12s5.37 12 12 12c6.93 0 11.525-4.875 11.525-11.73 0-.785-.085-1.385-.19-1.985H12.24z"/>
+        </svg>
+        Sign in with Google
+      </button>
+
+      <div style="text-align: center; color: var(--text-muted); font-size: 0.8rem; margin: 12px 0; position: relative;">
+        <span style="background: #ffffff; padding: 0 10px; position: relative; z-index: 2;">or email sign-in</span>
+        <hr style="position: absolute; top: 50%; left: 0; right: 0; border: none; border-top: 1px solid var(--border-color); z-index: 1;">
+      </div>
+
+      <!-- Email / Password Form -->
+      <form id="authForm" style="display: flex; flex-direction: column; gap: 12px;">
+        <div class="form-field" style="display: flex; flex-direction: column; gap: 4px;">
+          <label for="authEmail" style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);">Email Address</label>
+          <input type="email" id="authEmail" placeholder="name@company.com" required style="padding: 8px 12px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); outline: none; font-size: 0.9rem;">
+        </div>
+        <div class="form-field" style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px;">
+          <label for="authPassword" style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);">Password</label>
+          <input type="password" id="authPassword" placeholder="••••••••" required style="padding: 8px 12px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); outline: none; font-size: 0.9rem;">
+        </div>
+        <div class="auth-form-buttons" style="display: flex; gap: 10px;">
+          <button type="submit" id="btnEmailSignIn" class="btn btn-primary" style="flex: 1; font-size: 0.85rem; padding: 10px; cursor: pointer;">Sign In</button>
+          <button type="button" id="btnEmailSignUp" class="btn btn-secondary" style="flex: 1; font-size: 0.85rem; padding: 10px; cursor: pointer;">Register</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Database Connection Error Banner -->
+  <div class="db-error-overlay" id="dbErrorOverlay" style="display: none;">
+    <div class="db-error-card">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="error-icon">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <h3 id="dbErrorTitle">Database Connection Error</h3>
+      <p id="dbErrorMessage">Unable to connect to Firebase Firestore. Please check your internet connection or database configuration settings.</p>
+      <button class="btn btn-primary" id="btnRetryDbConnection" style="cursor: pointer;">Retry Connection</button>
+    </div>
+  </div>
+
+  <!-- Save Status Toast Indicator -->
+  <div class="save-status-toast" id="saveStatusToast">
+    <span class="toast-spinner" id="toastSpinner"></span>
+    <span class="toast-text" id="toastText">Saving...</span>
+  </div>
+
   <!-- Firebase Compat SDKs -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
   
   <!-- Main Application Logic -->
