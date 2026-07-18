@@ -181,9 +181,9 @@
     constructor() {
       this._data = {
         metadata: {
-          name: "AANA Product Roadmap",
+          name: "Neurotibb Product Roadmap",
           description: "Interactive phase-based roadmap for coordinating products, timelines, and feature releases.",
-          documentOwner: "AANA Product Team",
+          documentOwner: "Neurotibb Product Team",
           version: "v1.2.0",
           status: "Active"
         },
@@ -249,7 +249,7 @@
           try {
             await this.migrateData();
             
-            const memberDoc = await this.db.collection("projects").doc("aana").collection("members").doc(user.uid).get();
+            const memberDoc = await this.db.collection("projects").doc("neurotibb").collection("members").doc(user.uid).get();
             if (memberDoc.exists) {
               this.userRole = memberDoc.data().role || 'viewer';
               this.currentUser = { uid: user.uid, email: user.email, displayName: memberDoc.data().displayName || user.email.split('@')[0], role: this.userRole };
@@ -258,7 +258,7 @@
               this.setupUserUI();
               this.startRealtimeListeners();
             } else {
-              const membersSnap = await this.db.collection("projects").doc("aana").collection("members").limit(1).get();
+              const membersSnap = await this.db.collection("projects").doc("neurotibb").collection("members").limit(1).get();
               if (membersSnap.empty) {
                 console.log("Registering first user as project owner");
                 const ownerData = {
@@ -267,7 +267,7 @@
                   role: "owner",
                   createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
-                await this.db.collection("projects").doc("aana").collection("members").doc(user.uid).set(ownerData);
+                await this.db.collection("projects").doc("neurotibb").collection("members").doc(user.uid).set(ownerData);
                 this.userRole = "owner";
                 this.currentUser = { uid: user.uid, email: user.email, displayName: ownerData.displayName, role: "owner" };
                 
@@ -277,7 +277,7 @@
               } else {
                 console.error("Access Denied: Not a member");
                 await firebase.auth().signOut();
-                showAuthOverlay(true, "Access Denied: You are not a member of the AANA project.");
+                showAuthOverlay(true, "Access Denied: You are not a member of the Neurotibb project.");
               }
             }
           } catch (err) {
@@ -327,13 +327,13 @@
       this.stopRealtimeListeners();
       if (!this.db) return;
       
-      const projectRef = this.db.collection("projects").doc("aana");
+      const projectRef = this.db.collection("projects").doc("neurotibb");
       
       this._unsubscribes.metadata = projectRef.onSnapshot(doc => {
         if (doc.exists) {
           const data = doc.data();
           this._data.metadata = {
-            title: data.name || "AANA Product Roadmap",
+            title: data.name || "Neurotibb Product Roadmap",
             description: data.description || "",
             owner: data.documentOwner || "",
             version: data.version || "",
@@ -477,14 +477,14 @@
       if (!this.db) return;
       try {
         const logId = generateId();
-        const logRef = this.db.collection("projects").doc("aana").collection("auditLogs").doc(logId);
+        const logRef = this.db.collection("projects").doc("neurotibb").collection("auditLogs").doc(logId);
         await logRef.set({
           action,
           entityType,
           entityId,
           changedFields: changedFields || {},
           userId: this.currentUser ? this.currentUser.uid : "system",
-          userEmail: this.currentUser ? this.currentUser.email : "system@aana.com",
+          userEmail: this.currentUser ? this.currentUser.email : "system@neurotibb.com",
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
       } catch (err) {
@@ -524,8 +524,8 @@
       try {
         updateData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
         updateData.updatedBy = this.currentUser.uid;
-        await this.db.collection("projects").doc("aana").update(updateData);
-        await this.logAudit("update", "project", "aana", updateData);
+        await this.db.collection("projects").doc("neurotibb").update(updateData);
+        await this.logAudit("update", "project", "neurotibb", updateData);
         showSaveStatus('saved');
       } catch (err) {
         console.error("Firestore updateMetadata error:", err);
@@ -570,7 +570,7 @@
           updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
           updatedBy: this.currentUser.uid
         };
-        await this.db.collection("projects").doc("aana").collection("platforms").doc(id).set(docData);
+        await this.db.collection("projects").doc("neurotibb").collection("platforms").doc(id).set(docData);
         await this.logAudit("create", "platform", id, docData);
         showSaveStatus('saved');
       } catch (err) {
@@ -605,7 +605,7 @@
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             updatedBy: this.currentUser.uid
           };
-          await this.db.collection("projects").doc("aana").collection("platforms").doc(id).update(updateData);
+          await this.db.collection("projects").doc("neurotibb").collection("platforms").doc(id).update(updateData);
           await this.logAudit("update", "platform", id, updateData);
           showSaveStatus('saved');
         } catch (err) {
@@ -642,7 +642,7 @@
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             updatedBy: this.currentUser.uid
           };
-          await this.db.collection("projects").doc("aana").collection("platforms").doc(id).update(updateData);
+          await this.db.collection("projects").doc("neurotibb").collection("platforms").doc(id).update(updateData);
           await this.logAudit("archive", "platform", id, updateData);
           showSaveStatus('saved');
         } catch (err) {
@@ -707,7 +707,7 @@
           updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
           updatedBy: this.currentUser.uid
         };
-        await this.db.collection("projects").doc("aana").collection("phases").doc(id).set(docData);
+        await this.db.collection("projects").doc("neurotibb").collection("phases").doc(id).set(docData);
         await this.logAudit("create", "phase", id, docData);
         showSaveStatus('saved');
       } catch (err) {
@@ -757,7 +757,7 @@
       try {
         updateData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
         updateData.updatedBy = this.currentUser.uid;
-        await this.db.collection("projects").doc("aana").collection("phases").doc(id).update(updateData);
+        await this.db.collection("projects").doc("neurotibb").collection("phases").doc(id).update(updateData);
         await this.logAudit("update", "phase", id, updateData);
         showSaveStatus('saved');
       } catch (err) {
@@ -793,7 +793,7 @@
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             updatedBy: this.currentUser.uid
           };
-          await this.db.collection("projects").doc("aana").collection("phases").doc(id).update(updateData);
+          await this.db.collection("projects").doc("neurotibb").collection("phases").doc(id).update(updateData);
           await this.logAudit("archive", "phase", id, updateData);
           showSaveStatus('saved');
         } catch (err) {
@@ -865,7 +865,7 @@
           updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
           updatedBy: this.currentUser.uid
         };
-        await this.db.collection("projects").doc("aana").collection("items").doc(id).set(docData);
+        await this.db.collection("projects").doc("neurotibb").collection("items").doc(id).set(docData);
         await this.logAudit("create", "item", id, docData);
         showSaveStatus('saved');
       } catch (err) {
@@ -925,7 +925,7 @@
       try {
         updateData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
         updateData.updatedBy = this.currentUser.uid;
-        await this.db.collection("projects").doc("aana").collection("items").doc(id).update(updateData);
+        await this.db.collection("projects").doc("neurotibb").collection("items").doc(id).update(updateData);
         await this.logAudit("update", "item", id, updateData);
         showSaveStatus('saved');
       } catch (err) {
@@ -955,9 +955,9 @@
       
       try {
         const batch = this.db.batch();
-        const projectRef = this.db.collection("projects").doc("aana");
+        const projectRef = this.db.collection("projects").doc("neurotibb");
         const userId = this.currentUser ? this.currentUser.uid : "system";
-        const userEmail = this.currentUser ? this.currentUser.email : "system@aana.com";
+        const userEmail = this.currentUser ? this.currentUser.email : "system@neurotibb.com";
 
         itemsToUpdate.forEach(updateInfo => {
           const docRef = projectRef.collection("items").doc(updateInfo.id);
@@ -1013,7 +1013,7 @@
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             updatedBy: this.currentUser.uid
           };
-          await this.db.collection("projects").doc("aana").collection("items").doc(id).update(updateData);
+          await this.db.collection("projects").doc("neurotibb").collection("items").doc(id).update(updateData);
           await this.logAudit("archive", "item", id, updateData);
           showSaveStatus('saved');
         } catch (err) {
@@ -1026,7 +1026,7 @@
     async migrateData() {
       if (!this.db) return;
       try {
-        const migrationRef = this.db.collection("projects").doc("aana").collection("settings").doc("migration");
+        const migrationRef = this.db.collection("projects").doc("neurotibb").collection("settings").doc("migration");
         const migrationSnap = await migrationRef.get();
         if (migrationSnap.exists && migrationSnap.data().migrationCompleted) {
           return;
@@ -1042,9 +1042,9 @@
         const oldProjectRef = this.db.collection("settings").doc("project");
         const oldProjectSnap = await oldProjectRef.get();
         let projectData = {
-          name: "AANA Product Roadmap",
+          name: "Neurotibb Product Roadmap",
           description: "Interactive phase-based roadmap for coordinating products, timelines, and feature releases.",
-          documentOwner: "AANA Product Team",
+          documentOwner: "Neurotibb Product Team",
           version: "v1.2.0",
           status: "Active",
           createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1060,7 +1060,7 @@
           projectData.version = oldData.version || projectData.version;
           projectData.status = oldData.status || projectData.status;
         }
-        await this.db.collection("projects").doc("aana").set(projectData, { merge: true });
+        await this.db.collection("projects").doc("neurotibb").set(projectData, { merge: true });
         projectsMigrated++;
 
         const oldPlatformsSnap = await this.db.collection("platforms").get();
@@ -1074,7 +1074,7 @@
             return;
           }
           migratedPlatformIds.add(doc.id);
-          const newRef = this.db.collection("projects").doc("aana").collection("platforms").doc(doc.id);
+          const newRef = this.db.collection("projects").doc("neurotibb").collection("platforms").doc(doc.id);
           platformsBatch.set(newRef, {
             name: data.name || "",
             sortOrder: Number(data.sortOrder) || 1,
@@ -1110,7 +1110,7 @@
             endDate = dates.end;
           }
 
-          const newRef = this.db.collection("projects").doc("aana").collection("phases").doc(doc.id);
+          const newRef = this.db.collection("projects").doc("neurotibb").collection("phases").doc(doc.id);
           phasesBatch.set(newRef, {
             name: data.name || "",
             objective: data.objective || "",
@@ -1142,7 +1142,7 @@
           }
           migratedItemIds.add(doc.id);
 
-          const newRef = this.db.collection("projects").doc("aana").collection("items").doc(doc.id);
+          const newRef = this.db.collection("projects").doc("neurotibb").collection("items").doc(doc.id);
           itemsBatch.set(newRef, {
             title: data.title || "",
             type: data.type || "page",
@@ -1164,7 +1164,7 @@
         }
 
         await migrationRef.set({ migrationCompleted: true, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
-        localStorage.removeItem("aana_roadmap_local_cache");
+        localStorage.removeItem("neurotibb_roadmap_local_cache");
 
         console.log("Migration completed.");
       } catch (err) {
@@ -1175,8 +1175,8 @@
     async checkAndSeedDatabase() {
       if (!this.db || this.userRole !== 'owner') return;
       try {
-        const platformsSnap = await this.db.collection("projects").doc("aana").collection("platforms").limit(1).get();
-        const phasesSnap = await this.db.collection("projects").doc("aana").collection("phases").limit(1).get();
+        const platformsSnap = await this.db.collection("projects").doc("neurotibb").collection("platforms").limit(1).get();
+        const phasesSnap = await this.db.collection("projects").doc("neurotibb").collection("phases").limit(1).get();
         if (platformsSnap.empty && phasesSnap.empty) {
           console.log("Database is empty. Automatically seeding initial structure...");
           await this.seedInitialData();
@@ -1191,14 +1191,14 @@
       showSaveStatus('saving');
       try {
         const batch = this.db.batch();
-        const projectRef = this.db.collection("projects").doc("aana");
+        const projectRef = this.db.collection("projects").doc("neurotibb");
         const userId = this.currentUser ? this.currentUser.uid : "system";
 
         // Seed Project Metadata
         batch.set(projectRef, {
-          name: "AANA Product Roadmap",
+          name: "Neurotibb Product Roadmap",
           description: "Interactive phase-based roadmap for coordinating products, timelines, and feature releases.",
-          documentOwner: "AANA Product Team",
+          documentOwner: "Neurotibb Product Team",
           version: "v1.2.0",
           status: "Active",
           createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1327,12 +1327,12 @@
 
   function initSidebar() {
     if (!sidebar || !sidebarToggleBtn) return;
-    const isCollapsed = localStorage.getItem('aana_sidebar_collapsed') === 'true';
+    const isCollapsed = localStorage.getItem('neurotibb_sidebar_collapsed') === 'true';
     if (isCollapsed) sidebar.classList.add('collapsed');
 
     sidebarToggleBtn.addEventListener('click', () => {
       sidebar.classList.toggle('collapsed');
-      localStorage.setItem('aana_sidebar_collapsed', sidebar.classList.contains('collapsed'));
+      localStorage.setItem('neurotibb_sidebar_collapsed', sidebar.classList.contains('collapsed'));
       window.dispatchEvent(new Event('resize'));
     });
   }
@@ -1350,7 +1350,7 @@
   function initHeader() {
     store.on("change", (data) => {
       const meta = data.metadata || {};
-      if (document.activeElement !== titleEl) titleEl.textContent = meta.title || "AANA Product Roadmap";
+      if (document.activeElement !== titleEl) titleEl.textContent = meta.title || "Neurotibb Product Roadmap";
       if (document.activeElement !== descEl) descEl.textContent = meta.description || "";
       if (document.activeElement !== ownerEl) ownerEl.textContent = meta.owner || "";
       if (document.activeElement !== versionEl) versionEl.textContent = meta.version || "";
@@ -2311,7 +2311,7 @@
   // 12. APP INITIALIZATION & BOOTSTRAP
   // ==========================================
   document.addEventListener("DOMContentLoaded", async () => {
-    console.log("AANA Product Roadmap app initialization starting...");
+    console.log("Neurotibb Product Roadmap app initialization starting...");
 
     initSidebar();
     initHeader();
