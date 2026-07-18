@@ -348,37 +348,36 @@
       });
 
       this._unsubscribes.platforms = projectRef.collection("platforms")
-        .where("isArchived", "==", false)
-        .orderBy("sortOrder")
         .onSnapshot(snap => {
-          this._data.platforms = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          const list = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+            .filter(p => p.isArchived !== true);
+          list.sort((a, b) => (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0));
+          this._data.platforms = list;
           this.emit("change", this._data);
         }, err => {
           console.error("Platforms listener error:", err);
         });
 
       this._unsubscribes.phases = projectRef.collection("phases")
-        .where("isArchived", "==", false)
-        .orderBy("sortOrder")
         .onSnapshot(snap => {
-          this._data.phases = snap.docs.map(d => {
+          const list = snap.docs.map(d => {
             const data = d.data();
             return {
               id: d.id,
               ...data,
               period: formatPeriod(data.startDate, data.endDate)
             };
-          });
+          }).filter(p => p.isArchived !== true);
+          list.sort((a, b) => (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0));
+          this._data.phases = list;
           this.emit("change", this._data);
         }, err => {
           console.error("Phases listener error:", err);
         });
 
       this._unsubscribes.items = projectRef.collection("items")
-        .where("isArchived", "==", false)
-        .orderBy("sortOrder")
         .onSnapshot(snap => {
-          this._data.items = snap.docs.map(d => {
+          const list = snap.docs.map(d => {
             const data = d.data();
             return {
               id: d.id,
@@ -386,7 +385,9 @@
               figmaUrl: data.figmaEmbedUrl || "",
               docUrl: data.documentEmbedUrl || ""
             };
-          });
+          }).filter(p => p.isArchived !== true);
+          list.sort((a, b) => (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0));
+          this._data.items = list;
           this.emit("change", this._data);
         }, err => {
           console.error("Items listener error:", err);
