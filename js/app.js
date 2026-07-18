@@ -177,6 +177,43 @@
     }
   }
 
+  function setAuthLoading(loading, loadingText = 'Processing...') {
+    const emailInput = document.getElementById("authEmail");
+    const passwordInput = document.getElementById("authPassword");
+    const btnSignIn = document.getElementById("btnEmailSignIn");
+    const btnSignUp = document.getElementById("btnEmailSignUp");
+    
+    if (emailInput) emailInput.disabled = loading;
+    if (passwordInput) passwordInput.disabled = loading;
+    
+    if (btnSignIn) {
+      btnSignIn.disabled = loading;
+      btnSignIn.textContent = loading ? loadingText : 'Sign In';
+    }
+    if (btnSignUp) {
+      btnSignUp.disabled = loading;
+      btnSignUp.textContent = loading ? '...' : 'Register';
+    }
+  }
+
+  function timeoutPromise(promise, ms, errorMsg = "Connection timeout") {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error(errorMsg));
+      }, ms);
+      promise.then(
+        (res) => {
+          clearTimeout(timer);
+          resolve(res);
+        },
+        (err) => {
+          clearTimeout(timer);
+          reject(err);
+        }
+      );
+    });
+  }
+
   class DataStore {
     constructor() {
       this._data = {
@@ -247,18 +284,18 @@
           console.log("User logged in:", user.email);
           
           try {
-            await this.migrateData();
+            await timeoutPromise(this.migrateData(), 6000, "Database migration timed out. Please check network/rules.");
             
-            const memberDoc = await this.db.collection("projects").doc("neurotibb").collection("members").doc(user.uid).get();
+            const memberDoc = await timeoutPromise(this.db.collection("projects").doc("neurotibb").collection("members").doc(user.uid).get(), 6000, "Membership check timed out. Please check network/rules.");
             if (memberDoc.exists) {
               this.userRole = memberDoc.data().role || 'viewer';
               this.currentUser = { uid: user.uid, email: user.email, displayName: memberDoc.data().displayName || user.email.split('@')[0], role: this.userRole };
               
-              await this.checkAndSeedDatabase();
+              await timeoutPromise(this.checkAndSeedDatabase(), 6000, "Database seeding timed out.");
               this.setupUserUI();
               this.startRealtimeListeners();
             } else {
-              const membersSnap = await this.db.collection("projects").doc("neurotibb").collection("members").limit(1).get();
+              const membersSnap = await timeoutPromise(this.db.collection("projects").doc("neurotibb").collection("members").limit(1).get(), 6000, "Members collection query timed out.");
               if (membersSnap.empty) {
                 console.log("Registering first user as project owner");
                 const ownerData = {
@@ -267,11 +304,11 @@
                   role: "owner",
                   createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
-                await this.db.collection("projects").doc("neurotibb").collection("members").doc(user.uid).set(ownerData);
+                await timeoutPromise(this.db.collection("projects").doc("neurotibb").collection("members").doc(user.uid).set(ownerData), 6000, "Registration save timed out.");
                 this.userRole = "owner";
                 this.currentUser = { uid: user.uid, email: user.email, displayName: ownerData.displayName, role: "owner" };
                 
-                await this.checkAndSeedDatabase();
+                await timeoutPromise(this.checkAndSeedDatabase(), 6000, "Database seeding timed out.");
                 this.setupUserUI();
                 this.startRealtimeListeners();
               } else {
@@ -2330,41 +2367,56 @@
       });
     }
 
-    // Auth Form Submit
-    const authForm = document.getElementById("authForm");
-    if (authForm) {
-      authForm.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const email = document.getElementById("authEmail").value.trim();
-        const password = document.getElementById("authPassword").value;
-        showAuthOverlay(true);
-        await store.signInWithEmail(email, password);
-      });
-    }
-
-    // Google Sign-In Click
-    const btnGoogleSignIn = document.getElementById("btnGoogleSignIn");
-    if (btnGoogleSignIn) {
-      btnGoogleSignIn.addEventListener("click", async () => {
-        showAuthOverlay(true);
-        await store.signInWithGoogle();
-      });
-    }
-
-    // Email Sign-Up Click
-    const btnEmailSignUp = document.getElementById("btnEmailSignUp");
-    if (btnEmailSignUp) {
-      btnEmailSignUp.addEventListener("click", async () => {
-        const email = document.getElementById("authEmail").value.trim();
-        const password = document.getElementById("authPassword").value;
-        if (!email || !password) {
-          showAuthOverlay(true, "Please fill in email and password to register.");
-          return;
-        }
-        showAuthOverlay(true);
-        await store.signUpWithEmail(email, password);
-      });
-    }
+     // Auth Form Submit
+     const authForm = document.getElementById("authForm");
+     if (authForm) {
+       authForm.addEventListener("submit", async (e) => {
+         e.preventDefault();
+         const email = document.getElementById("authEmail").value.trim();
+         const password = document.getElementById("authPassword").value;
+         showAuthOverlay(true);
+         setAuthLoading(true, "Signing In...");
+         try {
+           await store.signInWithEmail(email, password);
+         } finally {
+           setAuthLoading(false);
+         }
+       });
+     }
+ 
+     // Google Sign-In Click
+     const btnGoogleSignIn = document.getElementById("btnGoogleSignIn");
+     if (btnGoogleSignIn) {
+       btnGoogleSignIn.addEventListener("click", async () => {
+         showAuthOverlay(true);
+         setAuthLoading(true, "Redirecting...");
+         try {
+           await store.signInWithGoogle();
+         } finally {
+           setAuthLoading(false);
+         }
+       });
+     }
+ 
+     // Email Sign-Up Click
+     const btnEmailSignUp = document.getElementById("btnEmailSignUp");
+     if (btnEmailSignUp) {
+       btnEmailSignUp.addEventListener("click", async () => {
+         const email = document.getElementById("authEmail").value.trim();
+         const password = document.getElementById("authPassword").value;
+         if (!email || !password) {
+           showAuthOverlay(true, "Please fill in email and password to register.");
+           return;
+         }
+         showAuthOverlay(true);
+         setAuthLoading(true, "Registering...");
+         try {
+           await store.signUpWithEmail(email, password);
+         } finally {
+           setAuthLoading(false);
+         }
+       });
+     }
 
     // Sign Out Click
     const btnSignOut = document.getElementById("btnSignOut");
