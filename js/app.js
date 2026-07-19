@@ -261,7 +261,7 @@
       return "Google sign-in was closed before it completed.";
     }
     if (code === "permission-denied" || message.toLowerCase().includes("permission")) {
-      return "Firebase allowed the sign-in, but Firestore denied project access. Deploy the included firestore.rules file, or create your member record under projects/neurotibb/members for this user.";
+      return "Firebase sign-in succeeded, but the live Firestore rules blocked project access. Publish the repository's firestore.rules in Firebase Console, then reload this page.";
     }
 
     return message;
