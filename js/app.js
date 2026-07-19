@@ -1557,12 +1557,12 @@
   function initHeader() {
     store.on("change", (data) => {
       const meta = data.metadata || {};
-      if (document.activeElement !== titleEl) titleEl.textContent = meta.title || "Neurotibb Product Roadmap";
-      if (document.activeElement !== descEl) descEl.textContent = meta.description || "";
-      if (document.activeElement !== ownerEl) ownerEl.textContent = meta.owner || "";
-      if (document.activeElement !== versionEl) versionEl.textContent = meta.version || "";
-      if (document.activeElement !== lastUpdatedEl) lastUpdatedEl.textContent = meta.lastUpdated || "";
-      if (document.activeElement !== statusEl) statusEl.textContent = meta.status || "";
+      if (titleEl && document.activeElement !== titleEl) titleEl.textContent = meta.title || "Neurotibb Product Roadmap";
+      if (descEl && document.activeElement !== descEl) descEl.textContent = meta.description || "";
+      if (ownerEl && document.activeElement !== ownerEl) ownerEl.textContent = meta.owner || "";
+      if (versionEl && document.activeElement !== versionEl) versionEl.textContent = meta.version || "";
+      if (lastUpdatedEl && document.activeElement !== lastUpdatedEl) lastUpdatedEl.textContent = meta.lastUpdated || "";
+      if (statusEl && document.activeElement !== statusEl) statusEl.textContent = meta.status || "";
     });
 
     const setupEditable = (el, fieldName) => {
