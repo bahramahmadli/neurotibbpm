@@ -148,11 +148,13 @@
   function showAuthOverlay(show, error = '') {
     if (!authOverlay) return;
     authOverlay.style.display = show ? 'flex' : 'none';
-    if (error) {
-      authErrorMsg.style.display = 'block';
-      authErrorMsg.textContent = error;
-    } else {
-      authErrorMsg.style.display = 'none';
+    if (authErrorMsg) {
+      if (error) {
+        authErrorMsg.style.display = 'block';
+        authErrorMsg.textContent = error;
+      } else {
+        authErrorMsg.style.display = 'none';
+      }
     }
 
     // Handle local file:// protocol warnings and button disabling
@@ -220,6 +222,12 @@
     });
   }
 
+  function hasFirebaseAuthSession() {
+    return typeof firebase !== 'undefined'
+      && typeof firebase.auth === 'function'
+      && !!firebase.auth().currentUser;
+  }
+
   function getAuthErrorMessage(err) {
     if (!err) return "Authentication failed. Please try again.";
     const code = err.code || "";
@@ -279,6 +287,8 @@
       this.userRole = 'viewer';
       this._authUnsubscribe = null;
       this._authInitStarted = false;
+      this._authStateReady = false;
+      this._authReadyTimer = null;
       
       this.app = null;
       this.db = null;
@@ -330,7 +340,23 @@
       if (this._authInitStarted) return;
       this._authInitStarted = true;
 
+      // Firebase should always resolve the initial auth state. Surface a useful
+      // error if the SDK or network prevents that callback from arriving.
+      this._authReadyTimer = setTimeout(() => {
+        if (!this._authStateReady) {
+          console.error("Firebase auth state callback did not arrive in time.");
+          setAuthLoading(false);
+          showAuthOverlay(true, "Firebase sign-in is not responding. Check that the Firebase Auth scripts loaded and that this site is allowed in Firebase Authentication.");
+        }
+      }, 10000);
+
       this._authUnsubscribe = firebase.auth().onAuthStateChanged(async (user) => {
+        this._authStateReady = true;
+        if (this._authReadyTimer) {
+          clearTimeout(this._authReadyTimer);
+          this._authReadyTimer = null;
+        }
+
         if (user) {
           console.log("User logged in:", user.email);
           setAuthLoading(true, "Opening...");
@@ -356,7 +382,13 @@
             this.currentUser = null;
             this.userRole = 'viewer';
             this.stopRealtimeListeners();
-            showAuthOverlay(true, "Authorization error: " + getAuthErrorMessage(err));
+            const authorizationError = "Authorization error: " + getAuthErrorMessage(err);
+            try {
+              await firebase.auth().signOut();
+            } catch (signOutErr) {
+              console.error("Could not clear the incomplete auth session:", signOutErr);
+            }
+            showAuthOverlay(true, authorizationError);
           } finally {
             setAuthLoading(false);
           }
@@ -367,6 +399,7 @@
           this.stopRealtimeListeners();
           const authSec = document.getElementById('sidebarAuthSection');
           if (authSec) authSec.style.display = 'none';
+          setAuthLoading(false);
           showAuthOverlay(true);
         }
       });
@@ -539,12 +572,15 @@
     }
 
     async signInWithGoogle() {
+      if (typeof firebase === 'undefined' || typeof firebase.auth !== 'function') {
+        throw new Error("Firebase Authentication is unavailable. Check the network connection and reload the page.");
+      }
       const provider = new firebase.auth.GoogleAuthProvider();
       try {
         await firebase.auth().signInWithPopup(provider);
       } catch (err) {
         console.error("Google sign in failed:", err);
-        showAuthOverlay(true, "Sign In Failed: " + err.message);
+        showAuthOverlay(true, "Sign In Failed: " + getAuthErrorMessage(err));
         throw err;
       }
     }
@@ -552,6 +588,9 @@
     async signInWithEmail(email, password) {
       if (!email || !password) {
         throw new Error("Enter your email address and password.");
+      }
+      if (typeof firebase === 'undefined' || typeof firebase.auth !== 'function') {
+        throw new Error("Firebase Authentication is unavailable. Check the network connection and reload the page.");
       }
       try {
         await firebase.auth().signInWithEmailAndPassword(email, password);
@@ -568,6 +607,9 @@
       }
       if (password.length < 6) {
         throw new Error("Password must be at least 6 characters long.");
+      }
+      if (typeof firebase === 'undefined' || typeof firebase.auth !== 'function') {
+        throw new Error("Firebase Authentication is unavailable. Check the network connection and reload the page.");
       }
       try {
         await firebase.auth().createUserWithEmailAndPassword(email, password);
@@ -2489,7 +2531,7 @@
          } catch (err) {
            showAuthOverlay(true, "Sign In Failed: " + getAuthErrorMessage(err));
          } finally {
-           setAuthLoading(false);
+           if (!hasFirebaseAuthSession()) setAuthLoading(false);
          }
        });
      }
@@ -2505,7 +2547,7 @@
          } catch (err) {
            showAuthOverlay(true, "Sign In Failed: " + getAuthErrorMessage(err));
          } finally {
-           setAuthLoading(false);
+           if (!hasFirebaseAuthSession()) setAuthLoading(false);
          }
        });
      }
@@ -2527,7 +2569,7 @@
          } catch (err) {
            showAuthOverlay(true, "Registration Failed: " + getAuthErrorMessage(err));
          } finally {
-           setAuthLoading(false);
+           if (!hasFirebaseAuthSession()) setAuthLoading(false);
          }
        });
      }
