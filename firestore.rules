@@ -34,7 +34,6 @@ service cloud.firestore {
       return isSelf(userId)
         && !exists(/databases/$(database)/documents/projects/$(projectId)/members/$(userId))
         && hasValidRole()
-        && request.resource.data.email == request.auth.token.email
         && (
           (!exists(/databases/$(database)/documents/projects/$(projectId)) && request.resource.data.role == 'owner') ||
           (exists(/databases/$(database)/documents/projects/$(projectId)) && request.resource.data.role == 'editor')
@@ -68,6 +67,12 @@ service cloud.firestore {
           
         // Owners can delete other members
         allow delete: if isMember(projectId) && getRole(projectId) == 'owner' && userId != request.auth.uid;
+      }
+
+      // Owner bootstrap and migration metadata.
+      match /settings/{settingId} {
+        allow read: if isMember(projectId);
+        allow write: if isMember(projectId) && getRole(projectId) in ['owner', 'editor'];
       }
 
       // Platforms subcollection
