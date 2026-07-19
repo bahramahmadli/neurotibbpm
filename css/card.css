@@ -132,19 +132,6 @@
   gap: 4px;
 }
 
-.card-action-link {
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--color-primary);
-  cursor: pointer;
-  background: none;
-  border: none;
-}
-
-.card-action-link:hover {
-  text-decoration: underline;
-}
-
 .card-action-icon-btn {
   background: none;
   border: none;

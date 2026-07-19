@@ -1718,11 +1718,10 @@
       <div class="card-footer">
         <span class="card-type-badge badge-${item.type}">${item.type}</span>
         <div class="card-actions">
-          <button class="card-action-link btn-details" type="button">Details</button>
-          <button class="card-action-icon-btn btn-edit" type="button" title="Edit Item">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 12px; height: 12px;">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-              <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          <button class="card-action-icon-btn btn-details" type="button" title="Open details" aria-label="Open details">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 13px; height: 13px;">
+              <line x1="5" y1="12" x2="19" y2="12"/>
+              <polyline points="12 5 19 12 12 19"/>
             </svg>
           </button>
           <button class="card-action-icon-btn btn-delete-card" type="button" title="Delete Item">
@@ -1740,11 +1739,6 @@
     card.querySelector(".btn-details").addEventListener("click", (e) => {
       e.stopPropagation();
       handlers.onDetails(item.id);
-    });
-
-    card.querySelector(".btn-edit").addEventListener("click", (e) => {
-      e.stopPropagation();
-      handlers.onEdit(item.id);
     });
 
     card.querySelector(".btn-delete-card").addEventListener("click", (e) => {
@@ -2407,7 +2401,6 @@
         filteredItems.forEach(item => {
           const cardEl = createCardElement(item, {
             onDetails: (id) => openModal(id),
-            onEdit: (id) => openDrawer("edit", id),
             onDelete: async (id) => {
               const confirmed = await confirmAction("Delete Roadmap Item", "Are you sure you want to delete this roadmap item?");
               if (confirmed) {
