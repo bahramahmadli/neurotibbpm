@@ -191,6 +191,11 @@
         </div>
 
         <div class="form-field">
+          <label for="formItemSubFeatures">Sub-features</label>
+          <textarea id="formItemSubFeatures" rows="5" placeholder="Add related features, one per line..."></textarea>
+        </div>
+
+        <div class="form-field">
           <label for="formItemPlatform">Platforma <span class="required">*</span></label>
           <select id="formItemPlatform" required>
             <option value="">Select Platform</option>
@@ -256,6 +261,23 @@
       </div>
       
       <div class="modal-body">
+        <!-- Block description and related sub-features -->
+        <div class="item-description-section">
+          <div class="embed-section-header">
+            <h3>Description</h3>
+            <div class="embed-actions">
+              <button class="btn btn-primary btn-sm" id="btnSaveItemDescription" type="button">Save Description</button>
+            </div>
+          </div>
+          <textarea id="itemDescriptionInput" rows="5" placeholder="Add extra information about this block..."></textarea>
+          <div class="item-description-status" id="itemDescriptionStatus" aria-live="polite"></div>
+        </div>
+
+        <div class="item-subfeatures-section" id="modalSubFeaturesSection">
+          <h3>Sub-features</h3>
+          <div id="modalSubFeatures"></div>
+        </div>
+
         <!-- Figma Embed Section -->
         <div class="embed-section">
           <div class="embed-section-header">

@@ -95,6 +95,7 @@
 }
 
 .form-field input[type="text"],
+.form-field textarea,
 .form-field select {
   padding: 10px 14px;
   border: 1px solid var(--border-color);
@@ -103,9 +104,12 @@
   background-color: #ffffff;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
   font-size: 0.95rem;
+  font-family: inherit;
+  resize: vertical;
 }
 
 .form-field input[type="text"]:focus,
+.form-field textarea:focus,
 .form-field select:focus {
   border-color: var(--border-focus);
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
@@ -113,6 +117,7 @@
 
 /* Form validation error styling */
 .form-field.invalid input[type="text"],
+.form-field.invalid textarea,
 .form-field.invalid select {
   border-color: var(--color-danger);
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);

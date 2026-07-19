@@ -103,6 +103,16 @@
     };
   }
 
+  function normalizeSubFeatures(value) {
+    if (Array.isArray(value)) {
+      return value.map(feature => String(feature).trim()).filter(Boolean);
+    }
+    if (typeof value === "string") {
+      return value.split(/\r?\n/).map(feature => feature.trim()).filter(Boolean);
+    }
+    return [];
+  }
+
   const saveToast = document.getElementById('saveStatusToast');
   const toastText = document.getElementById('toastText');
   
@@ -1026,6 +1036,8 @@
         platformId: itemData.platformId,
         phaseId: itemData.phaseId,
         type: itemData.type,
+        description: itemData.description || "",
+        subFeatures: normalizeSubFeatures(itemData.subFeatures),
         figmaUrl: itemData.figmaUrl || "",
         docUrl: itemData.docUrl || "",
         sortOrder,
@@ -1041,6 +1053,8 @@
         const docData = {
           title: newItem.title,
           type: newItem.type,
+          description: newItem.description,
+          subFeatures: newItem.subFeatures,
           platformId: newItem.platformId,
           phaseId: newItem.phaseId,
           sortOrder: newItem.sortOrder,
@@ -1065,15 +1079,17 @@
     async updateItem(id, fields) {
       if (this.userRole === 'viewer') {
         alert("Permission denied. Viewers cannot write.");
-        return;
+        return false;
       }
 
       const item = this._data.items.find(i => i.id === id);
-      if (!item) return;
+      if (!item) return false;
 
       const updateData = {};
       if (fields.title !== undefined) updateData.title = fields.title;
       if (fields.type !== undefined) updateData.type = fields.type;
+      if (fields.description !== undefined) updateData.description = String(fields.description);
+      if (fields.subFeatures !== undefined) updateData.subFeatures = normalizeSubFeatures(fields.subFeatures);
       if (fields.platformId !== undefined) updateData.platformId = fields.platformId;
       if (fields.phaseId !== undefined) updateData.phaseId = fields.phaseId;
       if (fields.figmaUrl !== undefined) updateData.figmaEmbedUrl = fields.figmaUrl;
@@ -1100,14 +1116,16 @@
         this.validateItem(targetTitle, targetType, targetPlat, targetPhase, targetSort);
       } catch (e) {
         alert(e.message);
-        return;
+        return false;
       }
 
       Object.assign(item, fields);
+      if (fields.description !== undefined) item.description = updateData.description;
+      if (fields.subFeatures !== undefined) item.subFeatures = updateData.subFeatures;
       if (updateData.sortOrder !== undefined) item.sortOrder = updateData.sortOrder;
       this.emit("change", this._data);
 
-      if (!this.db) return;
+      if (!this.db) return true;
       showSaveStatus('saving');
       try {
         updateData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
@@ -1115,9 +1133,11 @@
         await this.db.collection("projects").doc("neurotibb").collection("items").doc(id).update(updateData);
         await this.logAudit("update", "item", id, updateData);
         showSaveStatus('saved');
+        return true;
       } catch (err) {
         console.error("Firestore updateItem error:", err);
         showSaveStatus('failed', err.message);
+        return false;
       }
     }
 
@@ -1743,6 +1763,7 @@
   const itemForm = document.getElementById("itemForm");
   const idInput = document.getElementById("formItemId");
   const titleInput = document.getElementById("formItemTitle");
+  const subFeaturesInput = document.getElementById("formItemSubFeatures");
   const platformSelect = document.getElementById("formItemPlatform");
   const phaseSelect = document.getElementById("formItemPhase");
   const errTitle = document.getElementById("errItemTitle");
@@ -1805,6 +1826,7 @@
       if (item) {
         idInput.value = item.id;
         titleInput.value = item.title;
+        subFeaturesInput.value = normalizeSubFeatures(item.subFeatures).join("\n");
         platformSelect.value = item.platformId;
         phaseSelect.value = item.phaseId;
         const radio = itemForm.querySelector(`input[name="formItemType"][value="${item.type}"]`);
@@ -1828,6 +1850,7 @@
   async function submitForm() {
     const itemId = idInput.value;
     const title = titleInput.value.trim();
+    const subFeatures = normalizeSubFeatures(subFeaturesInput.value);
     const platformId = platformSelect.value;
     const phaseId = phaseSelect.value;
     const typeRadio = itemForm.querySelector("input[name='formItemType']:checked");
@@ -1852,7 +1875,7 @@
     }
 
     if (!valid) return;
-    const data = { title, platformId, phaseId, type };
+    const data = { title, subFeatures, platformId, phaseId, type };
 
     if (itemId) {
       await store.updateItem(itemId, data);
@@ -1874,6 +1897,11 @@
   const figmaActions = document.getElementById("figmaActions");
   const docContainer = document.getElementById("docContainer");
   const docActions = document.getElementById("docActions");
+  const itemDescriptionInput = document.getElementById("itemDescriptionInput");
+  const saveItemDescriptionBtn = document.getElementById("btnSaveItemDescription");
+  const itemDescriptionStatus = document.getElementById("itemDescriptionStatus");
+  const modalSubFeaturesSection = document.getElementById("modalSubFeaturesSection");
+  const modalSubFeatures = document.getElementById("modalSubFeatures");
   let activeItemId = null;
   let isModalOpen = false;
 
@@ -1893,6 +1921,8 @@
         openDrawer("edit", activeItemId);
       }
     });
+
+    saveItemDescriptionBtn.addEventListener("click", saveItemDescription);
 
     store.on("change", () => {
       if (isModalOpen && activeItemId) renderModalContent();
@@ -1929,8 +1959,31 @@
       <span class="modal-badge type-badge ${item.type}-badge">${item.type}</span>
     `;
 
+    const canEdit = store.userRole !== 'viewer';
+    if (document.activeElement !== itemDescriptionInput) {
+      itemDescriptionInput.value = item.description || "";
+    }
+    itemDescriptionInput.disabled = !canEdit;
+    saveItemDescriptionBtn.disabled = !canEdit;
+    saveItemDescriptionBtn.style.display = canEdit ? "inline-flex" : "none";
+    itemDescriptionStatus.textContent = canEdit ? "" : "Viewers cannot edit this description.";
+
+    const subFeatures = normalizeSubFeatures(item.subFeatures);
+    modalSubFeatures.innerHTML = subFeatures.length > 0
+      ? `<ul class="subfeature-list">${subFeatures.map(feature => `<li>${escapeHTML(feature)}</li>`).join("")}</ul>`
+      : `<p class="subfeature-empty">No sub-features added yet.</p>`;
+    modalSubFeaturesSection.style.display = "flex";
+
     renderFigmaSection(item);
     renderDocSection(item);
+  }
+
+  async function saveItemDescription() {
+    if (!activeItemId || store.userRole === 'viewer') return;
+    const saved = await store.updateItem(activeItemId, {
+      description: itemDescriptionInput.value.trim()
+    });
+    itemDescriptionStatus.textContent = saved === false ? "Could not save description." : "Description saved.";
   }
 
   function renderFigmaSection(item) {
