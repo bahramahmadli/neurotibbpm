@@ -1,9 +1,15 @@
 .card-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 5px;
   margin-bottom: 8px;
   min-height: 20px; /* Helper for dropping onto empty list */
+}
+
+@media (max-width: 760px) {
+  .card-list {
+    grid-template-columns: 1fr;
+  }
 }
 
 .roadmap-card {
