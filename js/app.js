@@ -231,6 +231,24 @@
     if (code === "auth/too-many-requests") {
       return "Too many failed attempts. Please wait a moment and try again.";
     }
+    if (code === "auth/invalid-email") {
+      return "Enter a valid email address.";
+    }
+    if (code === "auth/email-already-in-use") {
+      return "An account with this email already exists. Use Sign In instead.";
+    }
+    if (code === "auth/weak-password") {
+      return "Password must be at least 6 characters long.";
+    }
+    if (code === "auth/operation-not-allowed") {
+      return "Email/password sign-in is not enabled in Firebase Authentication.";
+    }
+    if (code === "auth/network-request-failed") {
+      return "Firebase could not reach the network. Check your connection and try again.";
+    }
+    if (code === "auth/popup-blocked") {
+      return "The browser blocked the Google sign-in window. Allow popups for this site and try again.";
+    }
     if (code === "auth/popup-closed-by-user") {
       return "Google sign-in was closed before it completed.";
     }
@@ -259,6 +277,8 @@
       this._unsubscribes = {};
       this.currentUser = null;
       this.userRole = 'viewer';
+      this._authUnsubscribe = null;
+      this._authInitStarted = false;
       
       this.app = null;
       this.db = null;
@@ -306,7 +326,11 @@
         return;
       }
 
-      firebase.auth().onAuthStateChanged(async (user) => {
+      // A retry must not register a second auth observer over the first one.
+      if (this._authInitStarted) return;
+      this._authInitStarted = true;
+
+      this._authUnsubscribe = firebase.auth().onAuthStateChanged(async (user) => {
         if (user) {
           console.log("User logged in:", user.email);
           setAuthLoading(true, "Opening...");
@@ -526,6 +550,9 @@
     }
 
     async signInWithEmail(email, password) {
+      if (!email || !password) {
+        throw new Error("Enter your email address and password.");
+      }
       try {
         await firebase.auth().signInWithEmailAndPassword(email, password);
       } catch (err) {
@@ -536,6 +563,12 @@
     }
 
     async signUpWithEmail(email, password) {
+      if (!email || !password) {
+        throw new Error("Enter an email address and password to register.");
+      }
+      if (password.length < 6) {
+        throw new Error("Password must be at least 6 characters long.");
+      }
       try {
         await firebase.auth().createUserWithEmailAndPassword(email, password);
       } catch (err) {
